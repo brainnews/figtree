@@ -1,11 +1,6 @@
 // Figma API configuration
 const FIGMA_API_BASE = 'https://api.figma.com/v1';
 
-// Debug logging function
-function debugLog(message, data = null) {
-  console.log(`[Figtree Content] ${message}`, data || '');
-}
-
 // Cache for API responses
 const nodeCache = new Map();
 
@@ -34,7 +29,7 @@ function createFigtreeUI() {
     <div class="figtree-add-project">
       <input type="text" class="figtree-url-input" placeholder="Paste Figma file URL...">
       <button class="figtree-add-button">
-        <span class="material-icons">add</span>
+        <span class="material-symbols-outlined">add</span>
       </button>
     </div>
     <div class="figtree-projects"></div>
@@ -44,7 +39,14 @@ function createFigtreeUI() {
   const style = document.createElement('style');
   style.textContent = `
     @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-    
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
+    .material-symbols-outlined {
+      font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24
+    }
     .figtree-container {
       position: fixed;
       top: 20px;
@@ -149,7 +151,7 @@ function createFigtreeUI() {
       background: #0B87E0;
     }
     
-    .figtree-add-button .material-icons {
+    .figtree-add-button .material-symbols-outlined, .figtree-add-button .material-symbols-outlined {
       font-size: 20px;
     }
     
@@ -197,10 +199,9 @@ function createFigtreeUI() {
     }
     
     .figtree-project-name::before,
-    .figtree-page-name::before,
     .figtree-frame-name::before,
     .figtree-group-name::before {
-      font-family: 'Material Icons';
+      font-family: 'Material Symbols Outlined';
       font-size: 16px;
       width: 16px;
       height: 16px;
@@ -209,21 +210,22 @@ function createFigtreeUI() {
       justify-content: center;
       opacity: 0.7;
     }
-    
-    .figtree-project-name::before {
-      content: 'folder_special';
+
+    .figtree-page-name::before {
+      content: '';
+      width: 0px;
     }
     
-    .figtree-page-name::before {
-      content: 'description';
+    .figtree-project-name::before {
+      content: 'folder';
     }
     
     .figtree-frame-name::before {
-      content: 'crop_free';
+      content: 'grid_3x3';
     }
     
     .figtree-group-name::before {
-      content: 'layers';
+      content: 'select';
     }
     
     .figtree-project-content,
@@ -497,7 +499,6 @@ function showError(message) {
 
 // Create a project item
 function createProjectItem(project) {
-  debugLog('Creating project item:', project);
   const projectElement = document.createElement('div');
   projectElement.className = 'figtree-project';
   projectElement.innerHTML = `
@@ -506,7 +507,7 @@ function createProjectItem(project) {
       <div class="figtree-project-actions">
         <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${project.key}">Copy</button>
         <button class="figtree-remove-btn" data-key="${project.key}">
-          <span class="material-icons">delete</span>
+          <span class="material-symbols-outlined">delete</span>
         </button>
       </div>
     </div>
@@ -545,7 +546,7 @@ function createProjectItem(project) {
         background: rgba(255, 59, 48, 0.1);
       }
       
-      .figtree-remove-btn .material-icons {
+      .figtree-remove-btn .material-symbols-outlined, .figtree-remove-btn .material-symbols-outlined {
         font-size: 16px;
       }
       
@@ -616,7 +617,6 @@ function createProjectItem(project) {
 
 // Create a page item
 function createPageItem(page, projectKey) {
-  debugLog('Creating page item:', page);
   const pageElement = document.createElement('div');
   pageElement.className = 'figtree-page';
   pageElement.innerHTML = `
@@ -658,31 +658,198 @@ function createPageItem(page, projectKey) {
 }
 
 // Create a frame item
-function createFrameItem(frame, projectKey, pageId) {
-  debugLog('Creating frame item:', frame);
+function createFrameItem(fileKey, frame) {
   const frameElement = document.createElement('div');
   frameElement.className = 'figtree-frame';
   frameElement.innerHTML = `
     <div class="figtree-frame-header">
       <span class="figtree-frame-name">${frame.name}</span>
-      <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${frame.id}">Copy</button>
+      <div class="figtree-frame-actions">
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${frame.id}">Copy</button>
+      </div>
     </div>
     <div class="figtree-frame-content">
-      <div class="figtree-groups"></div>
+      <div class="figtree-frame-preview">
+        <span class="figtree-frame-preview-loading">Loading preview...</span>
+      </div>
+      <div class="figtree-frame-groups"></div>
     </div>
   `;
-  
+
+  // Add styles if not already added
+  if (!document.querySelector('#figtree-frame-styles')) {
+    const style = document.createElement('style');
+    style.id = 'figtree-frame-styles';
+    style.textContent = `
+      .figtree-frame-content {
+        display: none;
+      }
+      
+      .figtree-frame-content.expanded {
+        display: block;
+      }
+      
+      .figtree-frame-preview {
+        margin: 4px 18px 8px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #424242;
+        position: relative;
+      }
+      
+      .figtree-frame-preview img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      
+      .figtree-frame-tip {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        background: rgba(35, 128, 32, 0.8);
+        color: white;
+        border: 1px solid green;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        grid-template-columns: repeat(auto-fit, minmax(20px, 130px));
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        z-index: 1;
+        pointer-events: none;
+        max-width: 114px;
+        backdrop-filter: blur(5px);
+      }
+      
+      .figtree-frame-preview:hover .figtree-frame-tip {
+        opacity: 1;
+      }
+      
+      .figtree-frame-tip .material-symbols-outlined {
+        font-size: 16px;
+      }
+      
+      .figtree-frame.expanded {
+        padding-bottom: 8px;
+      }
+      
+      .figtree-frame.expanded:hover {
+        background: #3d3d3d;
+      }
+      
+      .figtree-frame-groups {
+        margin-left: 4px;
+      }
+      
+      .figtree-group {
+        margin: 4px 0;
+      }
+      
+      .figtree-group-header {
+        padding: 6px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 4px;
+      }
+      
+      .figtree-group-header:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .figtree-frame-preview-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Add click handler for frame header
-  frameElement.querySelector('.figtree-frame-header').addEventListener('click', async () => {
+  const frameHeader = frameElement.querySelector('.figtree-frame-header');
+  frameHeader.addEventListener('click', async (e) => {
+    // Don't expand if clicking buttons
+    if (e.target.closest('.figtree-frame-actions')) return;
+
     const content = frameElement.querySelector('.figtree-frame-content');
-    if (!content.classList.contains('expanded')) {
-      content.classList.add('expanded');
-      await fetchFrameGroups(projectKey, pageId, frame.id, content.querySelector('.figtree-groups'));
-    } else {
-      content.classList.remove('expanded');
+    const preview = content.querySelector('.figtree-frame-preview');
+    const groups = content.querySelector('.figtree-frame-groups');
+    
+    frameElement.classList.toggle('expanded');
+    content.classList.toggle('expanded');
+
+    // Hide content when collapsing
+    if (!frameElement.classList.contains('expanded')) {
+      return;
+    }
+
+    // Load preview and groups if expanding
+    try {
+      // Get image URL for the frame
+      const [imageResponse, nodeResponse] = await Promise.all([
+        fetch(`${FIGMA_API_BASE}/images/${fileKey}?ids=${frame.id}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }),
+        fetch(`${FIGMA_API_BASE}/files/${fileKey}/nodes?ids=${frame.id}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        })
+      ]);
+
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json();
+        const imageUrl = imageData.images[frame.id];
+
+        if (imageUrl) {
+          preview.innerHTML = `
+            <div class="figtree-frame-tip">
+              <span class="material-symbols-outlined">right_click</span>
+              Right-click to copy image
+            </div>
+            <img src="${imageUrl}" alt="${frame.name}" loading="lazy">
+          `;
+        }
+      }
+
+      if (nodeResponse.ok) {
+        const nodeData = await nodeResponse.json();
+        const frameData = nodeData.nodes[frame.id];
+
+        if (frameData && frameData.document && frameData.document.children) {
+          groups.innerHTML = ''; // Clear existing groups
+          
+          // Add groups
+          frameData.document.children.forEach(child => {
+            if (child.type === 'GROUP') {
+              const groupElement = createGroupItem(child, fileKey);
+              groups.appendChild(groupElement);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading frame content:', error);
+      content.innerHTML = '<div class="figtree-error">Failed to load frame content</div>';
     }
   });
-  
+
   // Add copy button handler
   frameElement.querySelector('.figtree-copy-btn').addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -696,19 +863,18 @@ function createFrameItem(frame, projectKey, pageId) {
       btn.classList.remove('copied');
     }, 2000);
   });
-  
+
   return frameElement;
 }
 
 // Create a group item
-function createGroupItem(group, projectKey, pageId, frameId) {
-  debugLog('Creating group item:', group);
+function createGroupItem(group, fileKey) {
   const groupElement = document.createElement('div');
   groupElement.className = 'figtree-group';
   groupElement.innerHTML = `
     <div class="figtree-group-header">
       <span class="figtree-group-name">${group.name}</span>
-      <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${group.id}">Copy</button>
+      <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${group.id}">Copy</button>
     </div>
   `;
   
@@ -731,7 +897,6 @@ function createGroupItem(group, projectKey, pageId, frameId) {
 
 // Fetch pages for a project
 async function fetchProjectPages(projectKey, container) {
-  debugLog('Fetching pages for project:', projectKey);
   try {
     // Check cache first
     if (!nodeCache.has(projectKey)) {
@@ -788,9 +953,27 @@ async function fetchProjectPages(projectKey, container) {
   }
 }
 
+// Function to check if a node has a fignore child layer
+function hasFignoreLayer(node) {
+  // If the node has no children, return false
+  if (!node.children) return false;
+  
+  // Check all direct children
+  return node.children.some(child => {
+    // Check if this child is named "fignore"
+    if (child.name === "fignore") return true;
+    
+    // Recursively check children if this is a container node
+    if (child.children) {
+      return hasFignoreLayer(child);
+    }
+    
+    return false;
+  });
+}
+
 // Fetch frames within a page
 async function fetchPageFrames(projectKey, pageId, container) {
-  debugLog('Fetching frames for page:', pageId);
   try {
     const cacheKey = `${projectKey}_${pageId}`;
     let pageData;
@@ -815,64 +998,69 @@ async function fetchPageFrames(projectKey, pageId, container) {
     container.innerHTML = ''; // Clear existing content
     
     if (pageData.document.children) {
-      pageData.document.children.forEach(frame => {
-        if (frame.type === 'FRAME') {
-          container.appendChild(createFrameItem(frame, projectKey, pageId));
-        }
+      // Create an array of frames, filter out those with fignore layers, and reverse their order
+      const frames = pageData.document.children
+        .filter(frame => {
+          if (frame.type !== 'FRAME') return false;
+          
+          // Check if this frame has a fignore layer
+          return !hasFignoreLayer(frame);
+        })
+        .reverse();
+      
+      // Add frames in reversed order
+      frames.forEach(frame => {
+        container.appendChild(createFrameItem(projectKey, frame));
       });
     }
   } catch (error) {
-    console.error('Error fetching page frames:', error);
     container.innerHTML = '<div class="figtree-error">Failed to load frames</div>';
   }
 }
 
 // Fetch groups within a frame
-async function fetchFrameGroups(projectKey, pageId, frameId, container) {
-  debugLog('Fetching groups for frame:', frameId);
+async function fetchFrameGroups(fileKey, pageId, container) {
   try {
-    const cacheKey = `${projectKey}_${frameId}`;
-    let frameData;
-    
-    if (nodeCache.has(cacheKey)) {
-      frameData = nodeCache.get(cacheKey);
-    } else {
-      container.innerHTML = '<div class="figtree-loading">Loading...</div>';
-      const response = await fetch(`${FIGMA_API_BASE}/files/${projectKey}/nodes?ids=${frameId}`, {
+    // Check cache first
+    const cacheKey = `${fileKey}_${pageId}`;
+    if (!nodeCache.has(cacheKey)) {
+      const response = await fetch(`${FIGMA_API_BASE}/files/${fileKey}/nodes?ids=${pageId}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch frame groups');
+      if (!response.ok) throw new Error('Failed to fetch frames');
       
       const data = await response.json();
-      frameData = data.nodes[frameId];
-      nodeCache.set(cacheKey, frameData);
+      nodeCache.set(cacheKey, data.nodes[pageId]);
     }
     
-    container.innerHTML = ''; // Clear existing content
-    
-    if (frameData.document.children) {
-      frameData.document.children.forEach(group => {
-        if (group.type === 'GROUP') {
-          container.appendChild(createGroupItem(group, projectKey, pageId, frameId));
-        }
-      });
+    const pageData = nodeCache.get(cacheKey);
+    if (!pageData || !pageData.document || !pageData.document.children) {
+      throw new Error('Invalid page data');
     }
+    
+    container.innerHTML = '';
+    
+    // Add frames, filtering out those with fignore layers
+    pageData.document.children.forEach(frame => {
+      if ((frame.type === 'FRAME' || frame.type === 'GROUP') && !hasFignoreLayer(frame)) {
+        container.appendChild(createFrameItem(fileKey, frame));
+      }
+    });
+    
   } catch (error) {
-    console.error('Error fetching frame groups:', error);
-    container.innerHTML = '<div class="figtree-error">Failed to load groups</div>';
+    console.error('Error fetching frames:', error);
+    container.innerHTML = '<div class="figtree-error">Failed to load frames</div>';
   }
 }
 
 // Copy text to clipboard
 async function copyToClipboard(text) {
-  debugLog('Copying to clipboard:', text);
   try {
     await navigator.clipboard.writeText(text);
   } catch (error) {
-    console.error('Error copying to clipboard:', error);
     // Fallback to execCommand
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -887,13 +1075,10 @@ async function copyToClipboard(text) {
 let accessToken = null;
 
 // Send ready message when content script is loaded
-debugLog('Content script loaded');
 chrome.runtime.sendMessage({ action: 'contentScriptReady' });
 
 // Update the message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  debugLog('Received message:', message);
-  
   if (message.action === 'showProjects') {
     // Create and show UI immediately with loading state
     const container = createFigtreeUI();
@@ -970,7 +1155,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           data: nodeCache.get(project.key)
         };
       } catch (error) {
-        console.error('Error fetching project:', error);
         return project;
       }
     })).then(projects => {
@@ -994,7 +1178,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       sendResponse({ success: true });
     }).catch(error => {
-      console.error('Error loading projects:', error);
       if (panelState.isOpen && panelState.container) {
         projectsContainer.innerHTML = '<div class="figtree-error">Failed to load projects</div>';
       }

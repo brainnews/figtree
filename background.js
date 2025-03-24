@@ -232,6 +232,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
   }
+  
+  if (message.action === 'copyImage') {
+    // Handle image copying
+    fetch(message.imageUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${message.accessToken}`,
+        'Accept': 'image/png',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Origin': chrome.runtime.getURL('')
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      return response.blob();
+    })
+    .then(blob => {
+      // Create a new blob with the correct type
+      const newBlob = new Blob([blob], { type: 'image/png' });
+      return navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': newBlob
+        })
+      ]);
+    })
+    .then(() => {
+      sendResponse({ success: true });
+    })
+    .catch(error => {
+      console.error('Error copying image:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    return true; // Will respond asynchronously
+  }
+
+  if (message.action === 'downloadImage') {
+    handleImageDownload(message.imageUrl, message.accessToken, message.fileName)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 // Handle extension icon click
@@ -400,6 +444,41 @@ async function showProjects() {
     });
   } catch (error) {
     debugLog('Error in showProjects:', error);
+    throw error;
+  }
+}
+
+// Function to handle image download
+async function handleImageDownload(imageUrl, accessToken, fileName) {
+  try {
+    // Fetch the image with proper headers
+    const response = await fetch(imageUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'image/png'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+
+    // Get the blob
+    const blob = await response.blob();
+
+    // Create a download URL
+    const url = URL.createObjectURL(blob);
+
+    // Create a download link and trigger it
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error in handleImageDownload:', error);
     throw error;
   }
 } 
