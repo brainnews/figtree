@@ -10,6 +10,139 @@ let panelState = {
   container: null
 };
 
+// Function to update pinned items display
+function updatePinnedItemsDisplay(container) {
+  const pinnedItemsContent = container.querySelector('.figtree-pinned-items-content');
+  if (!pinnedItemsContent) return;
+
+  // Get current settings and pinned items
+  chrome.storage.sync.get(['pinnedItemsSettings', 'pinnedItems'], (result) => {
+    const settings = result.pinnedItemsSettings || {
+      maxPinnedItems: 5
+    };
+
+    const pinnedItems = result.pinnedItems || [];
+    
+    // Clear existing content
+    pinnedItemsContent.innerHTML = '';
+
+    if (pinnedItems.length === 0) {
+      pinnedItemsContent.innerHTML = '<div class="figtree-empty">No pinned items</div>';
+      return;
+    }
+
+    // Add each pinned item
+    pinnedItems.forEach(item => {
+      const itemElement = document.createElement('div');
+      itemElement.className = 'figtree-pinned-item';
+      itemElement.innerHTML = `
+        <div class="figtree-pinned-item-info">
+          ${item.preview ? `
+            <div class="figtree-pinned-item-preview">
+              <img src="${item.preview}" alt="${item.title}" onerror="this.style.display='none'">
+            </div>
+          ` : ''}
+          <span class="figtree-pinned-item-title">${item.title}</span>
+        </div>
+        <div class="figtree-pinned-item-actions">
+          <button class="figtree-pinned-item-copy" title="Copy link">
+            <span class="material-symbols-outlined">content_copy</span>
+          </button>
+          <button class="figtree-pinned-item-unpin" title="Unpin item">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      `;
+
+      // Add copy handler
+      const copyButton = itemElement.querySelector('.figtree-pinned-item-copy');
+      copyButton.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await copyToClipboard(item.url);
+        itemElement.classList.add('copied');
+        setTimeout(() => {
+          itemElement.classList.remove('copied');
+        }, 2000);
+      });
+
+      // Add unpin handler
+      const unpinButton = itemElement.querySelector('.figtree-pinned-item-unpin');
+      unpinButton.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const updatedItems = pinnedItems.filter(i => i.url !== item.url);
+        await chrome.storage.sync.set({ pinnedItems: updatedItems });
+        
+        // Update pinned items display
+        updatePinnedItemsDisplay(container);
+        
+        // Update pin button states in the main tree
+        const pinButtons = container.querySelectorAll('.figtree-pin-button');
+        pinButtons.forEach(button => {
+          const buttonUrl = button.closest('.figtree-project-header, .figtree-page-header, .figtree-frame-header, .figtree-group-header')
+            ?.querySelector('.figtree-copy-btn')?.dataset.url;
+          if (buttonUrl === item.url) {
+            button.classList.remove('pinned');
+          }
+        });
+      });
+
+      pinnedItemsContent.appendChild(itemElement);
+    });
+  });
+}
+
+// Function to pin an item
+async function pinItem(url, title, preview = null) {
+  const { pinnedItems = [], pinnedItemsSettings = { maxPinnedItems: 5 } } = await chrome.storage.sync.get(['pinnedItems', 'pinnedItemsSettings']);
+  
+  // Check if item is already pinned
+  if (pinnedItems.some(item => item.url === url)) {
+    return;
+  }
+  
+  // Check if we've reached the maximum number of pinned items
+  if (pinnedItems.length >= pinnedItemsSettings.maxPinnedItems) {
+    // Remove the oldest item
+    pinnedItems.shift();
+  }
+  
+  // Add new item
+  pinnedItems.push({
+    url,
+    title,
+    preview,
+    pinnedAt: Date.now()
+  });
+  
+  await chrome.storage.sync.set({ pinnedItems });
+  if (panelState.container) {
+    updatePinnedItemsDisplay(panelState.container);
+  }
+}
+
+// Function to unpin an item
+async function unpinItem(url) {
+  const { pinnedItems = [] } = await chrome.storage.sync.get('pinnedItems');
+  const updatedItems = pinnedItems.filter(item => item.url !== url);
+  await chrome.storage.sync.set({ pinnedItems: updatedItems });
+  
+  // Update all pin buttons in the UI
+  if (panelState.container) {
+    // Update pinned items display
+    updatePinnedItemsDisplay(panelState.container);
+    
+    // Update pin button states in the main tree
+    const pinButtons = panelState.container.querySelectorAll('.figtree-pin-button');
+    pinButtons.forEach(button => {
+      const buttonUrl = button.closest('.figtree-project-header, .figtree-page-header, .figtree-frame-header, .figtree-group-header')
+        ?.querySelector('.figtree-copy-btn')?.dataset.url;
+      if (buttonUrl === url) {
+        button.classList.remove('pinned');
+      }
+    });
+  }
+}
+
 // Create and inject the Figtree UI
 function createFigtreeUI() {
   // Remove any existing panel first
@@ -20,20 +153,399 @@ function createFigtreeUI() {
   
   const container = document.createElement('div');
   container.className = 'figtree-container';
+
+  // Add dragging functionality
+  let isDragging = false;
+  let currentX = 0;
+  let currentY = 0;
+  let initialX;
+  let initialY;
+  let xOffset = 0;
+  let yOffset = 0;
+
+  const dragStart = (e) => {
+    // Only allow dragging from the header or container itself (not its children)
+    if (e.target.closest('.figtree-add-project, .figtree-search, .figtree-projects')) {
+      return;
+    }
+
+    if (e.type === "touchstart") {
+      initialX = e.touches[0].clientX - xOffset;
+      initialY = e.touches[0].clientY - yOffset;
+    } else {
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+    }
+
+    isDragging = true;
+    container.style.cursor = 'grabbing';
+  };
+
+  const dragEnd = () => {
+    if (!isDragging) return;
+    
+    initialX = currentX;
+    initialY = currentY;
+    isDragging = false;
+    container.style.cursor = 'move';
+  };
+
+  const drag = (e) => {
+    if (!isDragging) return;
+
+    e.preventDefault();
+
+    if (e.type === "touchmove") {
+      currentX = e.touches[0].clientX - initialX;
+      currentY = e.touches[0].clientY - initialY;
+    } else {
+      currentX = e.clientX - initialX;
+      currentY = e.clientY - initialY;
+    }
+
+    // Get container bounds
+    const containerRect = container.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate bounds to keep at least 20px visible
+    const minX = -(viewportWidth + containerRect.width);
+    const maxX = viewportWidth - containerRect.width + 20;
+    const minY = 0;
+    const maxY = viewportHeight - 20;
+
+    // Apply bounds
+    xOffset = Math.min(Math.max(currentX, minX), maxX);
+    yOffset = Math.min(Math.max(currentY, minY), maxY);
+
+    container.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
+  };
+
+  // Clean up event listeners when panel is closed
+  const cleanup = () => {
+    document.removeEventListener("mousemove", drag);
+    document.removeEventListener("mouseup", dragEnd);
+    document.removeEventListener("touchmove", drag);
+    document.removeEventListener("touchend", dragEnd);
+  };
+
+  // Add cleanup to the close button click handler
+  const closePanel = () => {
+    cleanup();
+    container.remove();
+    panelState.isOpen = false;
+    panelState.container = null;
+  };
+
+  // Create the HTML structure first
   container.innerHTML = `
     <div class="figtree-header">
       <img src="https://files.milesgilbert.xyz/figtree-icon-transparent.png" alt="Figtree Logo" class="figtree-logo">
       <span class="figtree-title">Figtree</span>
-      <button class="figtree-close">×</button>
+      <div class="figtree-header-buttons">
+        <button class="figtree-settings" title="Settings">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+        <button class="figtree-minimize">
+          <span class="material-symbols-outlined">expand_more</span>
+        </button>
+        <button class="figtree-close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
     </div>
     <div class="figtree-add-project">
-      <input type="text" class="figtree-url-input" placeholder="Paste Figma file URL...">
+      <input type="text" class="figtree-url-input" placeholder="Add Figma file by URL">
       <button class="figtree-add-button">
         <span class="material-symbols-outlined">add</span>
       </button>
     </div>
+    <div class="figtree-search">
+      <input type="text" class="figtree-search-input" placeholder="Search projects...">
+    </div>
+    <div class="figtree-pinned-items">
+      <div class="figtree-pinned-items-header">
+        <span>Pinned Items</span>
+        <button class="figtree-pinned-items-toggle">
+          <span class="material-symbols-outlined">expand_less</span>
+        </button>
+      </div>
+      <div class="figtree-pinned-items-content"></div>
+    </div>
     <div class="figtree-projects"></div>
+    <div class="figtree-settings-panel">
+      <div class="figtree-settings-header">
+        <h2>Settings</h2>
+        <button class="figtree-settings-close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="figtree-settings-content">
+        <div class="figtree-settings-section">
+          <h3><span class="material-symbols-outlined">push_pin</span> Pinned</h3>
+          <div class="figtree-settings-group">
+            <label>
+              Maximum pinned items
+              <select class="figtree-settings-select" data-setting="maxPinnedItems">
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+              </select>
+            </label>
+            <button class="figtree-settings-button" data-action="clearPinned">
+              Clear All Pinned Items
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
+
+  // Add styles for pinned items panel
+  const pinnedItemsStyles = document.createElement('style');
+  pinnedItemsStyles.textContent = `
+    .figtree-pinned-items {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .figtree-pinned-items-header {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      font-weight: 500;
+      background-color: none;
+    }
+
+    .figtree-pinned-items-header:hover {
+      background-color: #3d3d3d;
+    }
+
+    .figtree-pinned-items-toggle {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: transform 0.2s ease;
+    }
+
+    .figtree-pinned-items-toggle:hover {
+      color: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .figtree-pinned-items.collapsed .figtree-pinned-items-toggle {
+      transform: rotate(180deg);
+    }
+
+    .figtree-pinned-items.collapsed .figtree-pinned-items-content {
+      display: none;
+    }
+
+    .figtree-pinned-items-content {
+      padding: 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background-color:rgba(26, 29, 27);
+      transition: max-height 0.3s ease;
+    }
+  `;
+  document.head.appendChild(pinnedItemsStyles);
+
+  // Load saved pinned items panel state
+  chrome.storage.sync.get(['pinnedItemsPanelCollapsed'], (result) => {
+    const pinnedItemsPanel = container.querySelector('.figtree-pinned-items');
+    if (result.pinnedItemsPanelCollapsed) {
+      pinnedItemsPanel.classList.add('collapsed');
+    }
+  });
+
+  // Add toggle handler for pinned items panel
+  const pinnedItemsHeader = container.querySelector('.figtree-pinned-items-header');
+  const pinnedItemsPanel = container.querySelector('.figtree-pinned-items');
+  
+  pinnedItemsHeader.addEventListener('click', () => {
+    pinnedItemsPanel.classList.toggle('collapsed');
+    // Save the state
+    chrome.storage.sync.set({
+      pinnedItemsPanelCollapsed: pinnedItemsPanel.classList.contains('collapsed')
+    });
+  });
+
+  // Add event listeners for both mouse and touch events
+  container.addEventListener("mousedown", dragStart, { passive: false });
+  document.addEventListener("mousemove", drag, { passive: false });
+  document.addEventListener("mouseup", dragEnd, { passive: false });
+  container.addEventListener("touchstart", dragStart, { passive: false });
+  document.addEventListener("touchmove", drag, { passive: false });
+  document.addEventListener("touchend", dragEnd, { passive: false });
+
+  // Now add event listeners after the HTML is created
+  const minimizeButton = container.querySelector('.figtree-minimize');
+  if (minimizeButton) {
+    minimizeButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      container.classList.toggle('minimized');
+    });
+  }
+
+  // Settings panel functionality
+  const settingsButton = container.querySelector('.figtree-settings');
+  const settingsPanel = container.querySelector('.figtree-settings-panel');
+  const settingsCloseButton = container.querySelector('.figtree-settings-close');
+
+  if (settingsButton && settingsPanel && settingsCloseButton) {
+    // Load saved settings
+    chrome.storage.sync.get(['pinnedItemsSettings'], (result) => {
+      const settings = result.pinnedItemsSettings || {
+        maxPinnedItems: 5
+      };
+
+      // Apply saved settings to UI
+      const maxPinnedItemsSelect = container.querySelector('[data-setting="maxPinnedItems"]');
+
+      if (maxPinnedItemsSelect) maxPinnedItemsSelect.value = settings.maxPinnedItems;
+    });
+
+    // Settings panel toggle
+    settingsButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // If panel is minimized, expand it first
+      if (container.classList.contains('minimized')) {
+        container.classList.remove('minimized');
+      }
+      settingsPanel.classList.toggle('open');
+    });
+
+    settingsCloseButton.addEventListener('click', () => {
+      settingsPanel.classList.remove('open');
+    });
+
+    // Handle settings changes
+    const settingsInputs = container.querySelectorAll('.figtree-settings-select');
+    settingsInputs.forEach(input => {
+      input.addEventListener('change', () => {
+        const settings = {
+          maxPinnedItems: parseInt(container.querySelector('[data-setting="maxPinnedItems"]')?.value || 5)
+        };
+
+        chrome.storage.sync.set({ pinnedItemsSettings: settings }, () => {
+          // Trigger update of pinned items display
+          updatePinnedItemsDisplay(container);
+        });
+      });
+    });
+
+    // Handle clear all pinned items
+    const clearPinnedButton = container.querySelector('[data-action="clearPinned"]');
+    if (clearPinnedButton) {
+      clearPinnedButton.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all pinned items?')) {
+          chrome.storage.sync.remove(['pinnedItems'], () => {
+            updatePinnedItemsDisplay(container);
+          });
+        }
+      });
+    }
+  }
+
+  // Update the copy button handlers to include pin functionality
+  function updateCopyButtonHandlers() {
+    const copyButtons = container.querySelectorAll('.figtree-copy-btn');
+    copyButtons.forEach(button => {
+      const url = button.dataset.url;
+      if (!url) return;
+
+      // Get the title from the parent element
+      const titleElement = button.closest('.figtree-project-header, .figtree-page-header, .figtree-frame-header, .figtree-group-header')
+        ?.querySelector('.figtree-project-name, .figtree-page-name, .figtree-frame-name, .figtree-group-name');
+      const title = titleElement ? titleElement.textContent.trim() : url;
+
+      // Get preview if available
+      const previewElement = button.closest('.figtree-frame')?.querySelector('.figtree-frame-preview img');
+      const preview = previewElement ? previewElement.src : null;
+
+      // Add pin button
+      const pinButton = document.createElement('button');
+      pinButton.className = 'figtree-pin-button';
+      pinButton.title = 'Pin item';
+      pinButton.innerHTML = '<span class="material-symbols-outlined">push_pin</span>';
+      
+      // Check if item is pinned
+      chrome.storage.sync.get(['pinnedItems'], (result) => {
+        const pinnedItems = result.pinnedItems || [];
+        if (pinnedItems.some(item => item.url === url)) {
+          pinButton.classList.add('pinned');
+        }
+      });
+
+      // Add pin/unpin handler
+      pinButton.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const isPinned = pinButton.classList.contains('pinned');
+        if (isPinned) {
+          await unpinItem(url);
+          pinButton.classList.remove('pinned');
+        } else {
+          await pinItem(url, title, preview);
+          pinButton.classList.add('pinned');
+        }
+      });
+
+      // Insert pin button before copy button
+      button.parentNode.insertBefore(pinButton, button);
+
+      // Add copy handler
+      button.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await copyToClipboard(url);
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  }
+
+  // Call updateCopyButtonHandlers after creating project items
+  const originalCreateProjectItem = createProjectItem;
+  createProjectItem = function(project) {
+    const element = originalCreateProjectItem(project);
+    updateCopyButtonHandlers();
+    return element;
+  };
+
+  // Initial display update
+  updatePinnedItemsDisplay(container);
+
+  // Update display when settings change
+  const settingsInputs = container.querySelectorAll('.figtree-settings-select');
+  settingsInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      updatePinnedItemsDisplay(container);
+    });
+  });
+
+  // Update close button click handler to use the cleanup function
+  const closeButton = container.querySelector('.figtree-close');
+  if (closeButton) {
+    closeButton.addEventListener('click', closePanel);
+  }
   
   // Add styles
   const style = document.createElement('style');
@@ -51,9 +563,11 @@ function createFigtreeUI() {
       position: fixed;
       top: 20px;
       right: 20px;
-      width: 280px;
+      width: 300px;
       max-height: 80vh;
       background: #2c2c2c;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(24px);
       border-radius: 6px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       z-index: 999999;
@@ -61,6 +575,16 @@ function createFigtreeUI() {
       flex-direction: column;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      cursor: move;
+      user-select: none;
+      transform: translate(0, 0);
+      transition: max-height 0.3s ease;
+      overflow: hidden;
+    }
+    
+    .figtree-container.minimized {
+      max-height: 58px;
+      overflow: hidden;
     }
     
     .figtree-header {
@@ -68,6 +592,59 @@ function createFigtreeUI() {
       display: flex;
       align-items: center;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: move;
+    }
+
+    .figtree-header-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .figtree-minimize,
+    .figtree-close {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .figtree-settings {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .figtree-settings:hover {
+      opacity: 1;
+    }
+
+    .figtree-minimize:hover,
+    .figtree-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .figtree-minimize .material-symbols-outlined {
+      font-size: 18px;
+      transition: transform 0.3s ease;
+    }
+
+    .figtree-container.minimized .figtree-minimize .material-symbols-outlined {
+      transform: rotate(180deg);
     }
 
     .figtree-logo {
@@ -82,26 +659,6 @@ function createFigtreeUI() {
       flex-grow: 1;
     }
     
-    .figtree-close {
-      background: none;
-      border: none;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 4px;
-    }
-    
-    .figtree-close:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.8);
-    }
-
     .figtree-empty {
       padding: 20px;
       text-align: center;
@@ -113,13 +670,19 @@ function createFigtreeUI() {
       gap: 8px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
+
+    .figtree-add-project,
+    .figtree-search,
+    .figtree-projects {
+      cursor: default;
+    }
     
     .figtree-url-input {
       flex-grow: 1;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      border: none;
       border-radius: 4px;
-      padding: 6px 12px;
+      padding: 6px 0px;
       color: #fff;
       font-size: 13px;
       outline: none;
@@ -153,6 +716,31 @@ function createFigtreeUI() {
     
     .figtree-add-button .material-symbols-outlined, .figtree-add-button .material-symbols-outlined {
       font-size: 20px;
+    }
+    
+    .figtree-search {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .figtree-search-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 0px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    
+    .figtree-search-input:focus {
+      border-color: #0D99FF;
+    }
+    
+    .figtree-search-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
     }
     
     .figtree-projects {
@@ -350,25 +938,275 @@ function createFigtreeUI() {
         opacity: 1;
       }
     }
+    
+    .figtree-project.hidden,
+    .figtree-page.hidden,
+    .figtree-frame.hidden,
+    .figtree-group.hidden {
+      display: none;
+    }
+
+    .figtree-settings-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 100%;
+      background: #2c2c2c;
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 1000000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .figtree-settings-panel.open {
+      transform: translateX(0);
+    }
+
+    .figtree-settings-header {
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .figtree-settings-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .figtree-settings-close {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .figtree-settings-content {
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .figtree-settings-section {
+      margin-bottom: 24px;
+    }
+
+    .figtree-settings-section h3 {
+      margin: 0 0 16px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .figtree-settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .figtree-settings-group label {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .figtree-settings-select {
+      background: #3c3c3c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      width: fit-content;
+    }
+
+    .figtree-settings-button {
+      background: #3c3c3c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .figtree-settings-button:hover {
+      background: #4c4c4c;
+    }
+
+    .figtree-settings-button[data-action="clearPinned"] {
+      background: #dc3545;
+      border-color: #dc3545;
+    }
+
+    .figtree-settings-button[data-action="clearPinned"]:hover {
+      background: #c82333;
+    }
+
+    .figtree-search-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .figtree-pinned-items {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .figtree-pinned-items-content {
+      padding: 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .figtree-pinned-item {
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .figtree-pinned-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .figtree-pinned-item-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .figtree-pinned-item-preview {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .figtree-pinned-item-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .figtree-pinned-item-title {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-grow: 1;
+    }
+
+    .figtree-pinned-item-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .figtree-pinned-item:hover .figtree-pinned-item-actions {
+      opacity: 1;
+    }
+
+    .figtree-pinned-item-copy,
+    .figtree-pinned-item-unpin {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .figtree-pinned-item-copy:hover {
+      color: #0D99FF;
+      background: rgba(13, 153, 255, 0.1);
+    }
+
+    .figtree-pinned-item-unpin:hover {
+      color: #FF3B30;
+      background: rgba(255, 59, 48, 0.1);
+    }
+
+    .figtree-pinned-item.copied .figtree-pinned-item-copy {
+      color: #64D2FF;
+    }
+
+    .figtree-pinned-item.copied .figtree-pinned-item-copy::before {
+      content: 'check';
+    }
+
+    .figtree-pin-button {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 4px;
+      cursor: pointer;
+      transition: opacity 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    .figtree-pin-button:hover {
+      color: #FFD700;
+      background: rgba(255, 215, 0, 0.1);
+    }
+
+    .figtree-pin-button.pinned {
+      color: #FFD700;
+      opacity: 1;
+    }
+
+    .figtree-pin-button .material-symbols-outlined {
+      font-size: 16px;
+    }
+
+    .figtree-project-header:hover .figtree-pin-button,
+    .figtree-page-header:hover .figtree-pin-button,
+    .figtree-frame-header:hover .figtree-pin-button,
+    .figtree-group-header:hover .figtree-pin-button {
+      opacity: 1;
+    }
+    .figtree-project-actions, .figtree-page-actions, .figtree-frame-actions, .figtree-group-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
   `;
   
   document.head.appendChild(style);
   document.body.appendChild(container);
   
-  // Add close button handler
-  container.querySelector('.figtree-close').addEventListener('click', () => {
-    container.remove();
-  });
-  
   panelState.container = container;
   panelState.isOpen = true;
-  
-  // Add event listeners
-  container.querySelector('.figtree-close').addEventListener('click', () => {
-    container.remove();
-    panelState.container = null;
-    panelState.isOpen = false;
-  });
   
   // Handle URL input
   const urlInput = container.querySelector('.figtree-url-input');
@@ -432,6 +1270,177 @@ function createFigtreeUI() {
   urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       addProject();
+    }
+  });
+  
+  // Add search functionality
+  const searchInput = container.querySelector('.figtree-search-input');
+  let isPreFetching = false;
+
+  // Pre-fetch all data when search is focused
+  searchInput.addEventListener('focus', async () => {
+    if (isPreFetching) return;
+    isPreFetching = true;
+
+    const projects = container.querySelectorAll('.figtree-project');
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'figtree-loading';
+    loadingIndicator.textContent = 'Indexing projects...';
+    container.querySelector('.figtree-projects').prepend(loadingIndicator);
+
+    try {
+      await Promise.all(Array.from(projects).map(async project => {
+        const projectKey = project.querySelector('.figtree-remove-btn').dataset.key;
+        
+        // Fetch project data if not cached
+        if (!nodeCache.has(projectKey)) {
+          const fileResponse = await fetch(`${FIGMA_API_BASE}/files/${projectKey}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          
+          if (!fileResponse.ok) return;
+          
+          const fileData = await fileResponse.json();
+          nodeCache.set(projectKey, fileData);
+        }
+      }));
+    } catch (error) {
+      console.error('Error pre-fetching data:', error);
+    } finally {
+      loadingIndicator.remove();
+      isPreFetching = false;
+    }
+  });
+
+  searchInput.addEventListener('input', async (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const projects = container.querySelectorAll('.figtree-project');
+    
+    // If search term is less than 3 characters, show all projects in collapsed state
+    if (searchTerm.length < 3) {
+      projects.forEach(project => {
+        project.classList.remove('hidden');
+        const projectContent = project.querySelector('.figtree-project-content');
+        projectContent.classList.remove('expanded');
+        
+        // Hide all pages
+        const pages = project.querySelectorAll('.figtree-page');
+        pages.forEach(page => {
+          page.classList.remove('hidden');
+          const pageContent = page.querySelector('.figtree-page-content');
+          pageContent.classList.remove('expanded');
+          
+          // Hide all frames
+          const frames = page.querySelectorAll('.figtree-frame');
+          frames.forEach(frame => {
+            frame.classList.remove('hidden');
+            const frameContent = frame.querySelector('.figtree-frame-content');
+            frameContent.classList.remove('expanded');
+          });
+        });
+      });
+      return;
+    }
+    
+    for (const project of projects) {
+      const projectKey = project.querySelector('.figtree-remove-btn').dataset.key;
+      const projectData = nodeCache.get(projectKey);
+      const projectName = project.querySelector('.figtree-project-name').textContent.toLowerCase();
+      let hasVisibleContent = projectName.includes(searchTerm);
+      
+      // If we have pre-fetched data, use it for more accurate search
+      if (projectData) {
+        const projectContent = project.querySelector('.figtree-project-content');
+        const pagesContainer = projectContent.querySelector('.figtree-pages');
+        
+        // Ensure pages are loaded if we have matches
+        if (!pagesContainer.children.length && (hasVisibleContent || searchTerm)) {
+          projectContent.classList.add('expanded');
+          await fetchProjectPages(projectKey, pagesContainer);
+        }
+
+        for (const page of projectData.document.children) {
+          const pageName = page.name.toLowerCase();
+          const pageVisible = pageName.includes(searchTerm);
+          const pageElement = project.querySelector(`[data-page-id="${page.id}"]`);
+          let pageHasVisibleContent = pageVisible;
+          
+          if (pageElement) {
+            const pageContent = pageElement.querySelector('.figtree-page-content');
+            const framesContainer = pageContent.querySelector('.figtree-frames');
+            
+            // Load frames if we need to search them
+            if (!framesContainer.children.length && searchTerm) {
+              pageContent.classList.add('expanded');
+              await fetchPageFrames(projectKey, page.id, framesContainer);
+            }
+
+            if (page.children) {
+              for (const frame of page.children) {
+                if (frame.type === 'FRAME') {
+                  const frameName = frame.name.toLowerCase();
+                  const frameVisible = frameName.includes(searchTerm);
+                  const frameElement = pageElement.querySelector(`[data-frame-id="${frame.id}"]`);
+                  let frameHasVisibleContent = frameVisible;
+                  
+                  if (frameElement) {
+                    const frameContent = frameElement.querySelector('.figtree-frame-content');
+                    
+                    if (frame.children) {
+                      frame.children.forEach(group => {
+                        if (group.type === 'GROUP') {
+                          const groupName = group.name.toLowerCase();
+                          const groupVisible = groupName.includes(searchTerm);
+                          const groupElement = frameElement.querySelector(`[data-group-id="${group.id}"]`);
+                          
+                          if (groupElement) {
+                            groupElement.classList.toggle('hidden', !groupVisible);
+                            if (groupVisible) {
+                              frameHasVisibleContent = true;
+                              frameContent.classList.add('expanded');
+                              pageContent.classList.add('expanded');
+                              projectContent.classList.add('expanded');
+                              
+                              // Load frame preview if not already loaded
+                              const preview = frameContent.querySelector('.figtree-frame-preview');
+                              if (preview && preview.querySelector('.figtree-frame-preview-loading')) {
+                                loadFramePreview(projectKey, frame, preview);
+                              }
+                            }
+                          }
+                        }
+                      });
+                    }
+                    
+                    frameElement.classList.toggle('hidden', !frameHasVisibleContent);
+                    if (frameHasVisibleContent) {
+                      pageHasVisibleContent = true;
+                      frameContent.classList.add('expanded');
+                      pageContent.classList.add('expanded');
+                      projectContent.classList.add('expanded');
+                      
+                      // Load frame preview if not already loaded
+                      const preview = frameContent.querySelector('.figtree-frame-preview');
+                      if (preview && preview.querySelector('.figtree-frame-preview-loading')) {
+                        loadFramePreview(projectKey, frame, preview);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            pageElement.classList.toggle('hidden', !pageHasVisibleContent);
+            if (pageHasVisibleContent) {
+              pageContent.classList.add('expanded');
+              projectContent.classList.add('expanded');
+              hasVisibleContent = true;
+            }
+          }
+        }
+      }
+      
+      project.classList.toggle('hidden', !hasVisibleContent);
     }
   });
   
@@ -505,7 +1514,10 @@ function createProjectItem(project) {
     <div class="figtree-project-header">
       <span class="figtree-project-name">${project.name}</span>
       <div class="figtree-project-actions">
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${project.key}">Copy</button>
+        <button class="figtree-pin-button" title="Pin item">
+          <span class="material-symbols-outlined">push_pin</span>
+        </button>
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${project.key}"></button>
         <button class="figtree-remove-btn" data-key="${project.key}">
           <span class="material-symbols-outlined">delete</span>
         </button>
@@ -520,13 +1532,7 @@ function createProjectItem(project) {
   if (!document.querySelector('#figtree-project-styles')) {
     const style = document.createElement('style');
     style.id = 'figtree-project-styles';
-    style.textContent = `
-      .figtree-project-actions {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-      }
-      
+    style.textContent = `      
       .figtree-remove-btn {
         opacity: 0;
         background: none;
@@ -546,7 +1552,7 @@ function createProjectItem(project) {
         background: rgba(255, 59, 48, 0.1);
       }
       
-      .figtree-remove-btn .material-symbols-outlined, .figtree-remove-btn .material-symbols-outlined {
+      .figtree-remove-btn .material-symbols-outlined {
         font-size: 16px;
       }
       
@@ -569,6 +1575,31 @@ function createProjectItem(project) {
       await fetchProjectPages(project.key, content.querySelector('.figtree-pages'));
     } else {
       content.classList.remove('expanded');
+    }
+  });
+  
+  // Add pin button handler
+  const pinButton = projectElement.querySelector('.figtree-pin-button');
+  const url = `https://www.figma.com/file/${project.key}`;
+  
+  // Check if item is pinned
+  chrome.storage.sync.get(['pinnedItems'], (result) => {
+    const pinnedItems = result.pinnedItems || [];
+    if (pinnedItems.some(item => item.url === url)) {
+      pinButton.classList.add('pinned');
+    }
+  });
+
+  // Add pin/unpin handler
+  pinButton.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const isPinned = pinButton.classList.contains('pinned');
+    if (isPinned) {
+      await unpinItem(url);
+      pinButton.classList.remove('pinned');
+    } else {
+      await pinItem(url, project.name);
+      pinButton.classList.add('pinned');
     }
   });
   
@@ -619,10 +1650,16 @@ function createProjectItem(project) {
 function createPageItem(page, projectKey) {
   const pageElement = document.createElement('div');
   pageElement.className = 'figtree-page';
+  pageElement.setAttribute('data-page-id', page.id);
   pageElement.innerHTML = `
     <div class="figtree-page-header">
       <span class="figtree-page-name">${page.name}</span>
-      <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${page.id}">Copy</button>
+      <div class="figtree-page-actions">
+        <button class="figtree-pin-button" title="Pin item">
+          <span class="material-symbols-outlined">push_pin</span>
+        </button>
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${page.id}"></button>
+      </div>
     </div>
     <div class="figtree-page-content">
       <div class="figtree-frames"></div>
@@ -637,6 +1674,31 @@ function createPageItem(page, projectKey) {
       await fetchPageFrames(projectKey, page.id, content.querySelector('.figtree-frames'));
     } else {
       content.classList.remove('expanded');
+    }
+  });
+  
+  // Add pin button handler
+  const pinButton = pageElement.querySelector('.figtree-pin-button');
+  const url = `https://www.figma.com/file/${projectKey}?node-id=${page.id}`;
+  
+  // Check if item is pinned
+  chrome.storage.sync.get(['pinnedItems'], (result) => {
+    const pinnedItems = result.pinnedItems || [];
+    if (pinnedItems.some(item => item.url === url)) {
+      pinButton.classList.add('pinned');
+    }
+  });
+
+  // Add pin/unpin handler
+  pinButton.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const isPinned = pinButton.classList.contains('pinned');
+    if (isPinned) {
+      await unpinItem(url);
+      pinButton.classList.remove('pinned');
+    } else {
+      await pinItem(url, page.name);
+      pinButton.classList.add('pinned');
     }
   });
   
@@ -661,11 +1723,15 @@ function createPageItem(page, projectKey) {
 function createFrameItem(fileKey, frame) {
   const frameElement = document.createElement('div');
   frameElement.className = 'figtree-frame';
+  frameElement.setAttribute('data-frame-id', frame.id);
   frameElement.innerHTML = `
     <div class="figtree-frame-header">
       <span class="figtree-frame-name">${frame.name}</span>
       <div class="figtree-frame-actions">
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${frame.id}">Copy</button>
+        <button class="figtree-pin-button" title="Pin item">
+          <span class="material-symbols-outlined">push_pin</span>
+        </button>
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${frame.id}"></button>
       </div>
     </div>
     <div class="figtree-frame-content">
@@ -850,6 +1916,32 @@ function createFrameItem(fileKey, frame) {
     }
   });
 
+  // Add pin button handler
+  const pinButton = frameElement.querySelector('.figtree-pin-button');
+  const url = `https://www.figma.com/file/${fileKey}?node-id=${frame.id}`;
+  
+  // Check if item is pinned
+  chrome.storage.sync.get(['pinnedItems'], (result) => {
+    const pinnedItems = result.pinnedItems || [];
+    if (pinnedItems.some(item => item.url === url)) {
+      pinButton.classList.add('pinned');
+    }
+  });
+
+  // Add pin/unpin handler
+  pinButton.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const isPinned = pinButton.classList.contains('pinned');
+    if (isPinned) {
+      await unpinItem(url);
+      pinButton.classList.remove('pinned');
+    } else {
+      const preview = frameElement.querySelector('.figtree-frame-preview img')?.src;
+      await pinItem(url, frame.name, preview);
+      pinButton.classList.add('pinned');
+    }
+  });
+
   // Add copy button handler
   frameElement.querySelector('.figtree-copy-btn').addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -863,7 +1955,7 @@ function createFrameItem(fileKey, frame) {
       btn.classList.remove('copied');
     }, 2000);
   });
-
+  
   return frameElement;
 }
 
@@ -871,12 +1963,43 @@ function createFrameItem(fileKey, frame) {
 function createGroupItem(group, fileKey) {
   const groupElement = document.createElement('div');
   groupElement.className = 'figtree-group';
+  groupElement.setAttribute('data-group-id', group.id);
   groupElement.innerHTML = `
     <div class="figtree-group-header">
       <span class="figtree-group-name">${group.name}</span>
-      <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${group.id}">Copy</button>
+      <div class="figtree-group-actions">
+        <button class="figtree-pin-button" title="Pin item">
+          <span class="material-symbols-outlined">push_pin</span>
+        </button>
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${group.id}"></button>
+      </div>
     </div>
   `;
+  
+  // Add pin button handler
+  const pinButton = groupElement.querySelector('.figtree-pin-button');
+  const url = `https://www.figma.com/file/${fileKey}?node-id=${group.id}`;
+  
+  // Check if item is pinned
+  chrome.storage.sync.get(['pinnedItems'], (result) => {
+    const pinnedItems = result.pinnedItems || [];
+    if (pinnedItems.some(item => item.url === url)) {
+      pinButton.classList.add('pinned');
+    }
+  });
+
+  // Add pin/unpin handler
+  pinButton.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const isPinned = pinButton.classList.contains('pinned');
+    if (isPinned) {
+      await unpinItem(url);
+      pinButton.classList.remove('pinned');
+    } else {
+      await pinItem(url, group.name);
+      pinButton.classList.add('pinned');
+    }
+  });
   
   // Add copy button handler
   groupElement.querySelector('.figtree-copy-btn').addEventListener('click', async (e) => {
@@ -1238,4 +2361,34 @@ function showSuccess(message) {
   setTimeout(() => {
     successDiv.remove();
   }, 3000);
+}
+
+// Add this new function to handle frame preview loading
+async function loadFramePreview(fileKey, frame, previewContainer) {
+  try {
+    // Get image URL for the frame
+    const imageResponse = await fetch(`${FIGMA_API_BASE}/images/${fileKey}?ids=${frame.id}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (imageResponse.ok) {
+      const imageData = await imageResponse.json();
+      const imageUrl = imageData.images[frame.id];
+
+      if (imageUrl) {
+        previewContainer.innerHTML = `
+          <div class="figtree-frame-tip">
+            <span class="material-symbols-outlined">right_click</span>
+            Right-click to copy image
+          </div>
+          <img src="${imageUrl}" alt="${frame.name}" loading="lazy">
+        `;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading frame preview:', error);
+    previewContainer.innerHTML = '<div class="figtree-error">Failed to load preview</div>';
+  }
 } 
