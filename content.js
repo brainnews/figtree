@@ -1,14 +1,13 @@
-// Figma API configuration
-const FIGMA_API_BASE = 'https://api.figma.com/v1';
-
-// Cache for API responses
-const nodeCache = new Map();
-
-// Keep track of panel state
-let panelState = {
+// Global variables
+if (typeof accessToken === 'undefined') var accessToken = null;
+if (typeof nodeCache === 'undefined') var nodeCache = new Map();
+if (typeof panelState === 'undefined') var panelState = {
   isOpen: false,
   container: null
 };
+
+// Figma API configuration
+if (typeof FIGMA_API_BASE === 'undefined') var FIGMA_API_BASE = 'https://api.figma.com/v1';
 
 // Function to update pinned items display
 function updatePinnedItemsDisplay(container) {
@@ -46,10 +45,8 @@ function updatePinnedItemsDisplay(container) {
         </div>
         <div class="figtree-pinned-item-actions">
           <button class="figtree-pinned-item-copy" title="Copy link">
-            <span class="material-symbols-outlined">content_copy</span>
           </button>
           <button class="figtree-pinned-item-unpin" title="Unpin item">
-            <span class="material-symbols-outlined">close</span>
           </button>
         </div>
       `;
@@ -93,17 +90,11 @@ function updatePinnedItemsDisplay(container) {
 
 // Function to pin an item
 async function pinItem(url, title, preview = null) {
-  const { pinnedItems = [], pinnedItemsSettings = { maxPinnedItems: 5 } } = await chrome.storage.sync.get(['pinnedItems', 'pinnedItemsSettings']);
+  const { pinnedItems = [] } = await chrome.storage.sync.get(['pinnedItems']);
   
   // Check if item is already pinned
   if (pinnedItems.some(item => item.url === url)) {
     return;
-  }
-  
-  // Check if we've reached the maximum number of pinned items
-  if (pinnedItems.length >= pinnedItemsSettings.maxPinnedItems) {
-    // Remove the oldest item
-    pinnedItems.shift();
   }
   
   // Add new item
@@ -262,10 +253,13 @@ function createFigtreeUI() {
     </div>
     <div class="figtree-search">
       <input type="text" class="figtree-search-input" placeholder="Search projects...">
+      <button class="figtree-search-clear" style="display: none;">
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
     <div class="figtree-pinned-items">
       <div class="figtree-pinned-items-header">
-        <span>Pinned Items</span>
+        <span>Pinned</span>
         <button class="figtree-pinned-items-toggle">
           <span class="material-symbols-outlined">expand_less</span>
         </button>
@@ -282,18 +276,7 @@ function createFigtreeUI() {
       </div>
       <div class="figtree-settings-content">
         <div class="figtree-settings-section">
-          <h3><span class="material-symbols-outlined">push_pin</span> Pinned</h3>
           <div class="figtree-settings-group">
-            <label>
-              Maximum pinned items
-              <select class="figtree-settings-select" data-setting="maxPinnedItems">
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-              </select>
-            </label>
             <button class="figtree-settings-button" data-action="clearPinned">
               Clear All Pinned Items
             </button>
@@ -306,11 +289,6 @@ function createFigtreeUI() {
   // Add styles for pinned items panel
   const pinnedItemsStyles = document.createElement('style');
   pinnedItemsStyles.textContent = `
-    .figtree-pinned-items {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.02);
-    }
-
     .figtree-pinned-items-header {
       padding: 8px 16px;
       display: flex;
@@ -321,7 +299,6 @@ function createFigtreeUI() {
       color: rgba(255, 255, 255, 0.8);
       font-size: 13px;
       font-weight: 500;
-      background-color: none;
     }
 
     .figtree-pinned-items-header:hover {
@@ -408,18 +385,6 @@ function createFigtreeUI() {
   const settingsCloseButton = container.querySelector('.figtree-settings-close');
 
   if (settingsButton && settingsPanel && settingsCloseButton) {
-    // Load saved settings
-    chrome.storage.sync.get(['pinnedItemsSettings'], (result) => {
-      const settings = result.pinnedItemsSettings || {
-        maxPinnedItems: 5
-      };
-
-      // Apply saved settings to UI
-      const maxPinnedItemsSelect = container.querySelector('[data-setting="maxPinnedItems"]');
-
-      if (maxPinnedItemsSelect) maxPinnedItemsSelect.value = settings.maxPinnedItems;
-    });
-
     // Settings panel toggle
     settingsButton.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -432,21 +397,6 @@ function createFigtreeUI() {
 
     settingsCloseButton.addEventListener('click', () => {
       settingsPanel.classList.remove('open');
-    });
-
-    // Handle settings changes
-    const settingsInputs = container.querySelectorAll('.figtree-settings-select');
-    settingsInputs.forEach(input => {
-      input.addEventListener('change', () => {
-        const settings = {
-          maxPinnedItems: parseInt(container.querySelector('[data-setting="maxPinnedItems"]')?.value || 5)
-        };
-
-        chrome.storage.sync.set({ pinnedItemsSettings: settings }, () => {
-          // Trigger update of pinned items display
-          updatePinnedItemsDisplay(container);
-        });
-      });
     });
 
     // Handle clear all pinned items
@@ -478,44 +428,45 @@ function createFigtreeUI() {
       const previewElement = button.closest('.figtree-frame')?.querySelector('.figtree-frame-preview img');
       const preview = previewElement ? previewElement.src : null;
 
-      // Add pin button
-      const pinButton = document.createElement('button');
-      pinButton.className = 'figtree-pin-button';
-      pinButton.title = 'Pin item';
-      pinButton.innerHTML = '<span class="material-symbols-outlined">push_pin</span>';
-      
-      // Check if item is pinned
-      chrome.storage.sync.get(['pinnedItems'], (result) => {
-        const pinnedItems = result.pinnedItems || [];
-        if (pinnedItems.some(item => item.url === url)) {
-          pinButton.classList.add('pinned');
-        }
-      });
+      // Add pin button only if one doesn't already exist
+      const existingPinButton = button.parentNode.querySelector('.figtree-pin-button');
+      if (!existingPinButton) {
+        const pinButton = document.createElement('button');
+        pinButton.className = 'figtree-pin-button';
+        pinButton.title = 'Pin item';
+        pinButton.innerHTML = '<span class="material-symbols-outlined">push_pin</span>';
+        
+        // Check if item is pinned
+        chrome.storage.sync.get(['pinnedItems'], (result) => {
+          const pinnedItems = result.pinnedItems || [];
+          if (pinnedItems.some(item => item.url === url)) {
+            pinButton.classList.add('pinned');
+          }
+        });
 
-      // Add pin/unpin handler
-      pinButton.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const isPinned = pinButton.classList.contains('pinned');
-        if (isPinned) {
-          await unpinItem(url);
-          pinButton.classList.remove('pinned');
-        } else {
-          await pinItem(url, title, preview);
-          pinButton.classList.add('pinned');
-        }
-      });
+        // Add pin/unpin handler
+        pinButton.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const isPinned = pinButton.classList.contains('pinned');
+          if (isPinned) {
+            await unpinItem(url);
+            pinButton.classList.remove('pinned');
+          } else {
+            await pinItem(url, title, preview);
+            pinButton.classList.add('pinned');
+          }
+        });
 
-      // Insert pin button before copy button
-      button.parentNode.insertBefore(pinButton, button);
+        // Insert pin button before copy button
+        button.parentNode.insertBefore(pinButton, button);
+      }
 
       // Add copy handler
       button.addEventListener('click', async (e) => {
         e.stopPropagation();
         await copyToClipboard(url);
-        button.textContent = 'Copied!';
         button.classList.add('copied');
         setTimeout(() => {
-          button.textContent = 'Copy';
           button.classList.remove('copied');
         }, 2000);
       });
@@ -566,9 +517,8 @@ function createFigtreeUI() {
       width: 300px;
       max-height: 80vh;
       background: #2c2c2c;
-      background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(24px);
-      border-radius: 6px;
+      border-radius: 16px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       z-index: 999999;
       display: flex;
@@ -580,6 +530,7 @@ function createFigtreeUI() {
       transform: translate(0, 0);
       transition: max-height 0.3s ease;
       overflow: hidden;
+      border: 1px solid #3d3d3d;
     }
     
     .figtree-container.minimized {
@@ -721,6 +672,9 @@ function createFigtreeUI() {
     .figtree-search {
       padding: 12px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     
     .figtree-search-input {
@@ -746,6 +700,7 @@ function createFigtreeUI() {
     .figtree-projects {
       overflow-y: auto;
       padding: 8px 0;
+      border-top: 1px solid #3d3d3d;
     }
     
     .figtree-project,
@@ -836,18 +791,20 @@ function createFigtreeUI() {
       background: none;
       border: none;
       color: rgba(255, 255, 255, 0.5);
-      padding: 4px 8px;
+      padding: 4px 6px;
       cursor: pointer;
       font-size: 12px;
       transition: opacity 0.2s, color 0.2s;
       display: flex;
       align-items: center;
       gap: 4px;
+      justify-content: center;
+      border-radius: 4px;
     }
     
     .figtree-copy-btn::before {
-      content: 'content_copy';
-      font-family: 'Material Icons';
+      content: 'link';
+      font-family: 'Material Symbols Outlined';
       font-size: 14px;
     }
     
@@ -859,11 +816,12 @@ function createFigtreeUI() {
     }
     
     .figtree-copy-btn:hover {
-      color: rgba(255, 255, 255, 0.9);
+      color:rgb(13, 255, 126);
+      background: rgba(13, 153, 255, 0.1);
     }
     
     .figtree-copy-btn.copied {
-      color: #64D2FF;
+      color:rgb(13, 255, 126);
     }
     
     .figtree-copy-btn.copied::before {
@@ -1060,10 +1018,10 @@ function createFigtreeUI() {
     .figtree-search-input::placeholder {
       color: rgba(255, 255, 255, 0.4);
     }
-    
-    .figtree-pinned-items {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.02);
+    .figtree-search::before {
+      content: 'search';
+      font-family: 'Material Symbols Outlined';
+      font-size: 14px;
     }
 
     .figtree-pinned-items-content {
@@ -1142,9 +1100,18 @@ function createFigtreeUI() {
       justify-content: center;
       transition: all 0.2s;
     }
-
+    .figtree-pinned-item-copy::before {
+      content: 'link';
+      font-family: 'Material Symbols Outlined';
+      font-size: 14px;
+    }
+    .figtree-pinned-item-unpin::before {
+      content: 'close';
+      font-family: 'Material Symbols Outlined';
+      font-size: 14px;
+    }
     .figtree-pinned-item-copy:hover {
-      color: #0D99FF;
+      color: rgb(13, 255, 126);
       background: rgba(13, 153, 255, 0.1);
     }
 
@@ -1154,7 +1121,7 @@ function createFigtreeUI() {
     }
 
     .figtree-pinned-item.copied .figtree-pinned-item-copy {
-      color: #64D2FF;
+      color:rgb(13, 255, 126);
     }
 
     .figtree-pinned-item.copied .figtree-pinned-item-copy::before {
@@ -1166,7 +1133,7 @@ function createFigtreeUI() {
       background: none;
       border: none;
       color: rgba(255, 255, 255, 0.5);
-      padding: 4px;
+      padding: 4px 6px;
       cursor: pointer;
       transition: opacity 0.2s, color 0.2s;
       display: flex;
@@ -1199,6 +1166,38 @@ function createFigtreeUI() {
       display: flex;
       gap: 4px;
       align-items: center;
+    }
+
+    .figtree-search-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .figtree-search-clear {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .figtree-search-clear:hover {
+      color: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .figtree-search-clear .material-symbols-outlined {
+      font-size: 16px;
+    }
+
+    .figtree-search::before {
+      content: 'search';
+      font-family: 'Material Symbols Outlined';
+      font-size: 14px;
     }
   `;
   
@@ -1275,7 +1274,21 @@ function createFigtreeUI() {
   
   // Add search functionality
   const searchInput = container.querySelector('.figtree-search-input');
+  const searchClearButton = container.querySelector('.figtree-search-clear');
   let isPreFetching = false;
+
+  // Show/hide clear button based on input value
+  searchInput.addEventListener('input', (e) => {
+    searchClearButton.style.display = e.target.value ? 'flex' : 'none';
+  });
+
+  // Clear search input when clear button is clicked
+  searchClearButton.addEventListener('click', () => {
+    searchInput.value = '';
+    searchClearButton.style.display = 'none';
+    // Trigger the search input event to reset the view
+    searchInput.dispatchEvent(new Event('input'));
+  });
 
   // Pre-fetch all data when search is focused
   searchInput.addEventListener('focus', async () => {
@@ -1514,10 +1527,10 @@ function createProjectItem(project) {
     <div class="figtree-project-header">
       <span class="figtree-project-name">${project.name}</span>
       <div class="figtree-project-actions">
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${project.key}"></button>
         <button class="figtree-pin-button" title="Pin item">
           <span class="material-symbols-outlined">push_pin</span>
         </button>
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${project.key}"></button>
         <button class="figtree-remove-btn" data-key="${project.key}">
           <span class="material-symbols-outlined">delete</span>
         </button>
@@ -1609,10 +1622,8 @@ function createProjectItem(project) {
     const url = e.target.dataset.url;
     await copyToClipboard(url);
     const btn = e.target;
-    btn.textContent = 'Copied!';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = 'Copy';
       btn.classList.remove('copied');
     }, 2000);
   });
@@ -1655,10 +1666,10 @@ function createPageItem(page, projectKey) {
     <div class="figtree-page-header">
       <span class="figtree-page-name">${page.name}</span>
       <div class="figtree-page-actions">
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${page.id}"></button>
         <button class="figtree-pin-button" title="Pin item">
           <span class="material-symbols-outlined">push_pin</span>
         </button>
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${projectKey}?node-id=${page.id}"></button>
       </div>
     </div>
     <div class="figtree-page-content">
@@ -1708,10 +1719,8 @@ function createPageItem(page, projectKey) {
     const url = e.target.dataset.url;
     await copyToClipboard(url);
     const btn = e.target;
-    btn.textContent = 'Copied!';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = 'Copy';
       btn.classList.remove('copied');
     }, 2000);
   });
@@ -1728,10 +1737,10 @@ function createFrameItem(fileKey, frame) {
     <div class="figtree-frame-header">
       <span class="figtree-frame-name">${frame.name}</span>
       <div class="figtree-frame-actions">
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${frame.id}"></button>
         <button class="figtree-pin-button" title="Pin item">
           <span class="material-symbols-outlined">push_pin</span>
         </button>
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${frame.id}"></button>
       </div>
     </div>
     <div class="figtree-frame-content">
@@ -1762,11 +1771,13 @@ function createFrameItem(fileKey, frame) {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid #424242;
         position: relative;
+        min-height: 120px;
       }
       
       .figtree-frame-preview img {
         width: 100%;
-        height: auto;
+        height: 100%;
+        object-fit: cover;
         display: block;
       }
       
@@ -1837,9 +1848,26 @@ function createFrameItem(fileKey, frame) {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #fff;
+        color: rgba(255, 255, 255, 0.5);
         font-size: 12px;
         font-weight: 500;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.05) 25%,
+          rgba(255, 255, 255, 0.1) 50%,
+          rgba(255, 255, 255, 0.05) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -1885,12 +1913,22 @@ function createFrameItem(fileKey, frame) {
 
         if (imageUrl) {
           preview.innerHTML = `
+            <div class="figtree-frame-preview-loading">Loading preview...</div>
             <div class="figtree-frame-tip">
               <span class="material-symbols-outlined">right_click</span>
               Right-click to copy image
             </div>
             <img src="${imageUrl}" alt="${frame.name}" loading="lazy">
           `;
+
+          // Add load event listener to the image
+          const img = preview.querySelector('img');
+          img.addEventListener('load', () => {
+            const loadingElement = preview.querySelector('.figtree-frame-preview-loading');
+            if (loadingElement) {
+              loadingElement.remove();
+            }
+          });
         }
       }
 
@@ -1901,9 +1939,9 @@ function createFrameItem(fileKey, frame) {
         if (frameData && frameData.document && frameData.document.children) {
           groups.innerHTML = ''; // Clear existing groups
           
-          // Add groups
+          // Add groups, filtering out those with fignore layers
           frameData.document.children.forEach(child => {
-            if (child.type === 'GROUP') {
+            if (child.type === 'GROUP' && !hasFignoreLayer(child)) {
               const groupElement = createGroupItem(child, fileKey);
               groups.appendChild(groupElement);
             }
@@ -1948,10 +1986,8 @@ function createFrameItem(fileKey, frame) {
     const url = e.target.dataset.url;
     await copyToClipboard(url);
     const btn = e.target;
-    btn.textContent = 'Copied!';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = 'Copy';
       btn.classList.remove('copied');
     }, 2000);
   });
@@ -1968,10 +2004,10 @@ function createGroupItem(group, fileKey) {
     <div class="figtree-group-header">
       <span class="figtree-group-name">${group.name}</span>
       <div class="figtree-group-actions">
+        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${group.id}"></button>
         <button class="figtree-pin-button" title="Pin item">
           <span class="material-symbols-outlined">push_pin</span>
         </button>
-        <button class="figtree-copy-btn" data-url="https://www.figma.com/file/${fileKey}?node-id=${group.id}"></button>
       </div>
     </div>
   `;
@@ -2007,10 +2043,8 @@ function createGroupItem(group, fileKey) {
     const url = e.target.dataset.url;
     await copyToClipboard(url);
     const btn = e.target;
-    btn.textContent = 'Copied!';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = 'Copy';
       btn.classList.remove('copied');
     }, 2000);
   });
@@ -2081,18 +2115,8 @@ function hasFignoreLayer(node) {
   // If the node has no children, return false
   if (!node.children) return false;
   
-  // Check all direct children
-  return node.children.some(child => {
-    // Check if this child is named "fignore"
-    if (child.name === "fignore") return true;
-    
-    // Recursively check children if this is a container node
-    if (child.children) {
-      return hasFignoreLayer(child);
-    }
-    
-    return false;
-  });
+  // Only check direct children for fignore layer
+  return node.children.some(child => child.name === "fignore");
 }
 
 // Fetch frames within a page
@@ -2120,23 +2144,27 @@ async function fetchPageFrames(projectKey, pageId, container) {
     
     container.innerHTML = ''; // Clear existing content
     
-    if (pageData.document.children) {
+    if (pageData && pageData.document && pageData.document.children) {
       // Create an array of frames, filter out those with fignore layers, and reverse their order
       const frames = pageData.document.children
         .filter(frame => {
           if (frame.type !== 'FRAME') return false;
           
           // Check if this frame has a fignore layer
-          return !hasFignoreLayer(frame);
+          const hasFignore = hasFignoreLayer(frame);
+          return !hasFignore;
         })
-        .reverse();
-      
+        .reverse();  
       // Add frames in reversed order
       frames.forEach(frame => {
         container.appendChild(createFrameItem(projectKey, frame));
       });
+    } else {
+      console.error('Invalid page data structure:', pageData);
+      container.innerHTML = '<div class="figtree-error">Invalid page data structure</div>';
     }
   } catch (error) {
+    console.error('Error in fetchPageFrames:', error);
     container.innerHTML = '<div class="figtree-error">Failed to load frames</div>';
   }
 }
@@ -2166,10 +2194,10 @@ async function fetchFrameGroups(fileKey, pageId, container) {
     
     container.innerHTML = '';
     
-    // Add frames, filtering out those with fignore layers
-    pageData.document.children.forEach(frame => {
-      if ((frame.type === 'FRAME' || frame.type === 'GROUP') && !hasFignoreLayer(frame)) {
-        container.appendChild(createFrameItem(fileKey, frame));
+    // Add frames and groups, filtering out those with fignore layers
+    pageData.document.children.forEach(child => {
+      if ((child.type === 'FRAME' || child.type === 'GROUP') && !hasFignoreLayer(child)) {
+        container.appendChild(createFrameItem(fileKey, child));
       }
     });
     
@@ -2195,12 +2223,6 @@ async function copyToClipboard(text) {
 }
 
 // Listen for messages from the background script
-let accessToken = null;
-
-// Send ready message when content script is loaded
-chrome.runtime.sendMessage({ action: 'contentScriptReady' });
-
-// Update the message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'showProjects') {
     // Create and show UI immediately with loading state
@@ -2248,22 +2270,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         // Check cache first
         if (!nodeCache.has(project.key)) {
-          // Fetch project data
-          const [fileResponse, nodesResponse] = await Promise.all([
-            // Fetch file data
-            fetch(`${FIGMA_API_BASE}/files/${project.key}`, {
-              headers: { 'Authorization': `Bearer ${accessToken}` }
-            }),
-            // Fetch first level of nodes in parallel
-            fetch(`${FIGMA_API_BASE}/files/${project.key}/nodes?ids=${project.key}`, {
-              headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-          ]);
+          // Fetch file data
+          const fileResponse = await fetch(`${FIGMA_API_BASE}/files/${project.key}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
           
           if (!fileResponse.ok) throw new Error('Failed to fetch project data');
           
           const fileData = await fileResponse.json();
           nodeCache.set(project.key, fileData);
+          
+          // Get the root node ID from the file data
+          const rootNodeId = fileData.document.id;
+          
+          // Fetch root node data
+          const nodesResponse = await fetch(`${FIGMA_API_BASE}/files/${project.key}/nodes?ids=${rootNodeId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
           
           if (nodesResponse.ok) {
             const nodesData = await nodesResponse.json();
@@ -2278,6 +2301,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           data: nodeCache.get(project.key)
         };
       } catch (error) {
+        console.error('Error loading project:', error);
         return project;
       }
     })).then(projects => {
@@ -2366,7 +2390,6 @@ function showSuccess(message) {
 // Add this new function to handle frame preview loading
 async function loadFramePreview(fileKey, frame, previewContainer) {
   try {
-    // Get image URL for the frame
     const imageResponse = await fetch(`${FIGMA_API_BASE}/images/${fileKey}?ids=${frame.id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -2379,11 +2402,12 @@ async function loadFramePreview(fileKey, frame, previewContainer) {
 
       if (imageUrl) {
         previewContainer.innerHTML = `
+          <div class="figtree-frame-preview-loading">Loading preview...</div>
           <div class="figtree-frame-tip">
             <span class="material-symbols-outlined">right_click</span>
             Right-click to copy image
           </div>
-          <img src="${imageUrl}" alt="${frame.name}" loading="lazy">
+          <img src="${imageUrl}" alt="${frame.name}" loading="lazy" onload="this.parentElement.querySelector('.figtree-frame-preview-loading').remove()">
         `;
       }
     }

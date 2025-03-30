@@ -6,7 +6,7 @@ let accessToken = null;
 
 // Debug logging function
 function debugLog(message, data = null) {
-  console.log(`[Figtree] ${message}`, data || '');
+  //console.log(`[Figtree] ${message}`, data || '');
 }
 
 // Generate a random state string
@@ -25,6 +25,7 @@ async function exchangeCodeForToken(code) {
   debugLog('Exchanging code for token');
   try {
     const clientId = chrome.runtime.getManifest().oauth2.client_id;
+    const clientSecret = chrome.runtime.getManifest().oauth2.client_secret;
     const redirectUri = getRedirectUrl();
     
     debugLog('Using client ID:', clientId);
@@ -32,7 +33,7 @@ async function exchangeCodeForToken(code) {
     
     const formData = new URLSearchParams();
     formData.append('client_id', clientId);
-    formData.append('client_secret', 'aZy7fIw50AZmEyvriMdz0tnousQQYV');
+    formData.append('client_secret', clientSecret);
     formData.append('redirect_uri', redirectUri);
     formData.append('code', code);
     formData.append('grant_type', 'authorization_code');
@@ -365,9 +366,6 @@ async function showProjects() {
     
     const meData = await meResponse.json();
     debugLog('User data:', meData);
-    
-    // Hardcoded file keys for testing
-    const fileKeys = ['LRYnDizdwXZsZsN2i5hHko', 'UfMZYzu1XL3gX1EKz803ys'];
     
     // Fetch each file
     const projects = [];

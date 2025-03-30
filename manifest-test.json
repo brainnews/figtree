@@ -41,10 +41,10 @@
     }
   ],
   "oauth2": {
-    "client_id": "qTujZ7BNoSdMdVikl3RaeD",
+    "client_id": "YOUR_CLIENT_ID",
     "scopes": ["files:read"],
-    "client_secret": "aZy7fIw50AZmEyvriMdz0tnousQQYV"
+    "client_secret": "YOUR_CLIENT_SECRET"
   },
   "author": "Miles Gilbert",
-  "homepage_url": "https://github.com/brainnews/Figtree"
+  "homepage_url": "YOUR_HOMEPAGE_URL"
 } 
