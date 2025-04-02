@@ -608,10 +608,17 @@ function createFigtreeUI() {
       font-weight: 500;
       flex-grow: 1;
     }
+
+    .figtree-projects-empty-image {
+      width: 50px;
+      margin-bottom: 20px;
+    }
     
     .figtree-empty {
-      padding: 20px;
       text-align: center;
+      font-size: 14px;
+      line-height: 18px;
+      padding: 20px;
     }
 
     .figtree-add-project {
@@ -2327,7 +2334,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       projectsContainer.innerHTML = '';
       
       if (projects.length === 0) {
-        projectsContainer.innerHTML = '<div class="figtree-empty"><img src="https://files.getfigtree.com/figtree-projects-empty.png" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found<br/><br/>Add a project by pasting the Figma file URL into the input field above.</div>';
+        projectsContainer.innerHTML = '<div class="figtree-empty"><img src="https://files.getfigtree.com/figtree-projects-empty.png" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>';
       } else {
         // Add project items
         projects.forEach(project => {
