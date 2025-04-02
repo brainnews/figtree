@@ -17,7 +17,8 @@ function generateState() {
 // Get the extension's redirect URL
 function getRedirectUrl() {
   const extensionId = chrome.runtime.id;
-  return `chrome-extension://${extensionId}/oauth.html`;
+  //return `chrome-extension://${extensionId}/oauth.html`;
+  return 'https://brainnews.github.io/figtree/oauth.html'
 }
 
 // Exchange authorization code for access token

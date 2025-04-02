@@ -1199,6 +1199,10 @@ function createFigtreeUI() {
       font-family: 'Material Symbols Outlined';
       font-size: 14px;
     }
+
+    .figtree-add-button.loading .material-symbols-outlined {
+      animation: figtree-spin 0.6s linear infinite;
+    }
   `;
   
   document.head.appendChild(style);
@@ -1234,6 +1238,8 @@ function createFigtreeUI() {
     // Add loading state
     addButton.disabled = true;
     urlInput.disabled = true;
+    addButton.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
+    addButton.classList.add('loading');
     
     try {
       // Verify the file exists and get its data
@@ -1254,6 +1260,11 @@ function createFigtreeUI() {
       // Clear input
       urlInput.value = '';
       
+      // Show loading state in projects list
+      const projectsContainer = container.querySelector('.figtree-projects');
+      projectsContainer.innerHTML = '';
+      projectsContainer.appendChild(createLoadingItem('Loading projects...'));
+      
       // Refresh projects list
       chrome.runtime.sendMessage({ action: 'refreshProjects' });
       
@@ -1262,6 +1273,8 @@ function createFigtreeUI() {
     } finally {
       addButton.disabled = false;
       urlInput.disabled = false;
+      addButton.innerHTML = '<span class="material-symbols-outlined">add</span>';
+      addButton.classList.remove('loading');
     }
   };
   
