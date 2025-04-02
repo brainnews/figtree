@@ -16,9 +16,9 @@ function generateState() {
 
 // Get the extension's redirect URL
 function getRedirectUrl() {
+  // For development, use the extension's internal OAuth page
   const extensionId = chrome.runtime.id;
-  //return `chrome-extension://${extensionId}/oauth.html`;
-  return 'https://www.getfigtree.com/welcome'
+  return `chrome-extension://${extensionId}/oauth.html`;
 }
 
 // Exchange authorization code for access token
@@ -77,140 +77,24 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Handle OAuth redirect
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.url && changeInfo.url.startsWith(getRedirectUrl())) {
-    debugLog('OAuth redirect detected:', changeInfo.url);
-    
-    const url = new URL(changeInfo.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    
-    // Verify state
-    const { oauthState } = await chrome.storage.local.get('oauthState');
-    if (state !== oauthState) {
-      debugLog('State mismatch');
-      return;
-    }
-    
-    // Exchange code for token using the existing function
-    try {
-      const token = await exchangeCodeForToken(code);
-      debugLog('Token exchange successful');
-      
-      // Store the access token
-      await chrome.storage.local.set({ figmaAccessToken: token });
-      
-      // Get all tabs to find where we might have a panel open
-      const tabs = await chrome.tabs.query({});
-      
-      // Close panels in all tabs except the OAuth tab
-      for (const existingTab of tabs) {
-        if (existingTab.id !== tabId) {
-          try {
-            // Check if we can inject scripts into this tab
-            const canInject = existingTab.url && (
-              existingTab.url.startsWith('http://') || 
-              existingTab.url.startsWith('https://') ||
-              existingTab.url.startsWith('file://')
-            );
-            
-            if (canInject) {
-              // Try to send a message to close any existing panels
-              await chrome.tabs.sendMessage(existingTab.id, { action: 'closePanel' });
-            }
-          } catch (error) {
-            // Ignore errors - tab might not have our content script
-            debugLog('Tab does not have content script:', existingTab.id);
-          }
-        }
-      }
-      
-      // Close the OAuth tab
-      //chrome.tabs.remove(tabId);
-      
-      // Don't show the panel - just store the token
-    } catch (error) {
-      debugLog('Error exchanging code for token:', error);
-    }
-  }
-});
-
-// Get access token from storage
-async function getAccessToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['figmaAccessToken'], function(result) {
-      debugLog('Retrieved token from storage:', result.figmaAccessToken ? 'exists' : 'not found');
-      resolve(result.figmaAccessToken || null);
-    });
-  });
-}
-
-// Start OAuth flow
-function startOAuthFlow() {
-  debugLog('Starting OAuth flow');
-  try {
-    const clientId = chrome.runtime.getManifest().oauth2.client_id;
-    const scopes = chrome.runtime.getManifest().oauth2.scopes.join(' ');
-    const state = generateState();
-    
-    debugLog('Generated OAuth parameters:', {
-      clientId,
-      scopes,
-      state
-    });
-    
-    // Store the state for verification
-    chrome.storage.local.set({ oauthState: state }, () => {
-      debugLog('Stored OAuth state');
-    });
-    
-    const redirectUri = getRedirectUrl();
-    debugLog('Using redirect URI:', redirectUri);
-    
-    const authUrl = `${FIGMA_OAUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
-    
-    debugLog('Opening OAuth URL:', authUrl);
-    
-    // Open the OAuth URL in a new tab
-    chrome.tabs.create({ url: authUrl });
-  } catch (error) {
-    debugLog('Error starting OAuth flow:', error);
-    throw error;
-  }
-}
-
-// Fetch user's projects
-async function fetchProjects(accessToken) {
-  debugLog('Fetching projects...');
-  try {
-    // First verify our authentication
-    const meResponse = await fetch(`${FIGMA_API_BASE}/me`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!meResponse.ok) {
-      throw new Error(`Failed to verify authentication: ${meResponse.status}`);
-    }
-    
-    const meData = await meResponse.json();
-    debugLog('User data:', meData);
-    
-    // Get stored projects
-    const { figmaProjects = [] } = await chrome.storage.local.get('figmaProjects');
-    debugLog('Stored projects:', figmaProjects);
-    
-    return figmaProjects;
-  } catch (error) {
-    debugLog('Error in fetchProjects:', error);
-    throw error;
-  }
-}
-
-// Handle messages from content script
+// Listen for messages from content script and OAuth page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Received message:', message);
+  
+  if (message.action === 'handleOAuthResponse') {
+    console.log('Handling OAuth response:', message);
+    handleOAuthResponse(message.code, message.state)
+      .then(() => {
+        console.log('OAuth response handled successfully');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('Error handling OAuth response:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep the message channel open for async response
+  }
+  
   if (message.action === 'refreshProjects') {
     // Get the current tab
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
@@ -280,72 +164,200 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Get access token from storage
+async function getAccessToken() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['figma_access_token'], function(result) {
+      debugLog('Retrieved token from storage:', result.figma_access_token ? 'exists' : 'not found');
+      if (result.figma_access_token) {
+        accessToken = result.figma_access_token; // Update in-memory token
+      }
+      resolve(result.figma_access_token || null);
+    });
+  });
+}
+
+// Verify token is valid
+async function verifyToken(token) {
+  try {
+    const response = await fetch('https://api.figma.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    debugLog('Error verifying token:', error);
+    return false;
+  }
+}
+
+// Start OAuth flow
+function startOAuthFlow() {
+  debugLog('Starting OAuth flow');
+  try {
+    const clientId = chrome.runtime.getManifest().oauth2.client_id;
+    const scopes = chrome.runtime.getManifest().oauth2.scopes.join(' ');
+    const state = generateState();
+    
+    debugLog('Generated OAuth parameters:', {
+      clientId,
+      scopes,
+      state
+    });
+    
+    // Store the state for verification
+    chrome.storage.local.set({ oauth_state: state }, () => {
+      debugLog('Stored OAuth state');
+    });
+    
+    const redirectUri = getRedirectUrl();
+    debugLog('Using redirect URI:', redirectUri);
+    
+    const authUrl = `${FIGMA_OAUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
+    
+    debugLog('Opening OAuth URL:', authUrl);
+    
+    // Open the OAuth URL in a new tab
+    chrome.tabs.create({ url: authUrl });
+  } catch (error) {
+    debugLog('Error starting OAuth flow:', error);
+    throw error;
+  }
+}
+
+// Fetch user's projects
+async function fetchProjects(accessToken) {
+  debugLog('Fetching projects...');
+  try {
+    // First verify our authentication
+    const meResponse = await fetch(`${FIGMA_API_BASE}/me`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!meResponse.ok) {
+      throw new Error(`Failed to verify authentication: ${meResponse.status}`);
+    }
+    
+    const meData = await meResponse.json();
+    debugLog('User data:', meData);
+    
+    // Get stored projects
+    const { figmaProjects = [] } = await chrome.storage.local.get('figmaProjects');
+    debugLog('Stored projects:', figmaProjects);
+    
+    return figmaProjects;
+  } catch (error) {
+    debugLog('Error in fetchProjects:', error);
+    throw error;
+  }
+}
+
 // Handle extension icon click
 chrome.action.onClicked.addListener(async (tab) => {
   debugLog('Extension icon clicked');
   
-  // Show panel immediately
-  await injectContentScript(tab);
-  await sendMessageToContentScript(tab.id, { 
-    action: 'showProjects',
-    accessToken: null,
-    projects: [] 
-  });
-
-  // Then fetch data asynchronously
   try {
-    const accessToken = await getAccessToken();
+    // First try to get token from memory
+    if (!accessToken) {
+      // If not in memory, try to get from storage
+      accessToken = await getAccessToken();
+    }
+    
     if (!accessToken) {
       debugLog('No access token found, starting OAuth flow');
       startOAuthFlow();
       return;
     }
 
-    // Fetch projects in background
-    fetchProjects(accessToken).then(async (projects) => {
-      // Send updated data to content script
-      await sendMessageToContentScript(tab.id, {
-        action: 'updateProjects',
-        accessToken,
-        projects
-      });
-    }).catch(error => {
-      debugLog('Error fetching projects:', error);
-      if (error.message.includes('401')) {
-        // Token expired or invalid, restart OAuth flow
-        startOAuthFlow();
-      }
+    // Verify token is still valid
+    const isValid = await verifyToken(accessToken);
+    if (!isValid) {
+      debugLog('Token is invalid, starting OAuth flow');
+      accessToken = null;
+      await chrome.storage.local.remove('figma_access_token');
+      startOAuthFlow();
+      return;
+    }
+    
+    // Token is valid, show panel and fetch projects
+    await injectContentScript(tab);
+    await sendMessageToContentScript(tab.id, { 
+      action: 'showProjects',
+      accessToken,
+      projects: [] 
     });
 
+    // Fetch projects in background
+    const projects = await fetchProjects(accessToken);
+    await sendMessageToContentScript(tab.id, {
+      action: 'updateProjects',
+      accessToken,
+      projects
+    });
+      
   } catch (error) {
     debugLog('Error:', error);
-    if (error.message.includes('401')) {
-      startOAuthFlow();
-    }
+    startOAuthFlow();
   }
 });
 
-// Update sendMessageToContentScript to not wait for content script
-async function sendMessageToContentScript(tabId, message) {
+// Function to handle image download
+async function handleImageDownload(imageUrl, accessToken, fileName) {
   try {
-    await chrome.tabs.sendMessage(tabId, message);
-    debugLog('Message sent successfully to content script:', message);
+    // Fetch the image with proper headers
+    const response = await fetch(imageUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'image/png'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+
+    // Get the blob
+    const blob = await response.blob();
+
+    // Create a download URL
+    const url = URL.createObjectURL(blob);
+
+    // Create a download link and trigger it
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   } catch (error) {
-    debugLog('Error sending message to content script:', error);
+    console.error('Error in handleImageDownload:', error);
     throw error;
   }
 }
 
-// Inject content script more efficiently
+// Function to inject content script
 async function injectContentScript(tab) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['content.js']
     });
-    debugLog('Content script injected successfully');
   } catch (error) {
-    debugLog('Error injecting content script:', error);
+    // If the script is already injected, this will fail, which is fine
+    debugLog('Content script already injected or injection failed:', error);
+  }
+}
+
+// Function to send message to content script
+async function sendMessageToContentScript(tabId, message) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+  } catch (error) {
+    debugLog('Error sending message to content script:', error);
     throw error;
   }
 }
@@ -447,37 +459,82 @@ async function showProjects() {
   }
 }
 
-// Function to handle image download
-async function handleImageDownload(imageUrl, accessToken, fileName) {
+// Handle OAuth response
+async function handleOAuthResponse(code, state) {
+  console.log('Starting OAuth response handling:', { code, state });
+  
+  if (!code || !state) {
+    throw new Error('Missing code or state parameter');
+  }
+
+  // Verify state matches what we stored
+  const storedState = await chrome.storage.local.get('oauth_state');
+  console.log('Stored state:', storedState);
+  console.log('Received state:', state);
+  
+  if (storedState.oauth_state !== state) {
+    throw new Error('State mismatch');
+  }
+
   try {
-    // Fetch the image with proper headers
-    const response = await fetch(imageUrl, {
+    // Get the redirect URI
+    const redirectUri = getRedirectUrl();
+    console.log('Using redirect URI:', redirectUri);
+
+    // Exchange code for token
+    const tokenResponse = await fetch('https://api.figma.com/v1/oauth/token', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'image/png'
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: 'qTujZ7BNoSdMdVikl3RaeD',
+        client_secret: 'aZy7fIw50AZmEyvriMdz0tnousQQYV',
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      console.error('Token exchange failed:', errorData);
+      throw new Error('Token exchange failed');
+    }
+
+    const tokenData = await tokenResponse.json();
+    console.log('Token exchange successful');
+
+    // Store the access token
+    await chrome.storage.local.set({
+      figma_access_token: tokenData.access_token,
+      figma_refresh_token: tokenData.refresh_token
+    });
+
+    // Get user info
+    const userResponse = await fetch('https://api.figma.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    if (!userResponse.ok) {
+      throw new Error('Failed to get user info');
     }
 
-    // Get the blob
-    const blob = await response.blob();
+    const userData = await userResponse.json();
+    console.log('User info retrieved:', userData);
 
-    // Create a download URL
-    const url = URL.createObjectURL(blob);
+    // Store user info
+    await chrome.storage.local.set({
+      figma_user: userData
+    });
 
-    // Create a download link and trigger it
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Return success - projects will be fetched when needed
+    return { success: true };
+
   } catch (error) {
-    console.error('Error in handleImageDownload:', error);
+    console.error('Error in handleOAuthResponse:', error);
     throw error;
   }
-} 
+}

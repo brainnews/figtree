@@ -231,7 +231,7 @@ function createFigtreeUI() {
   // Create the HTML structure first
   container.innerHTML = `
     <div class="figtree-header">
-      <img src="https://files.milesgilbert.xyz/figtree-icon-transparent.png" alt="Figtree Logo" class="figtree-logo">
+      <img src="https://files.getfigtree.com/figtree-icon-transparent.png" alt="Figtree Logo" class="figtree-logo">
       <span class="figtree-title">Figtree</span>
       <div class="figtree-header-buttons">
         <button class="figtree-settings" title="Settings">
@@ -599,8 +599,7 @@ function createFigtreeUI() {
     }
 
     .figtree-logo {
-      width: 34px;
-      filter: grayscale(1) brightness(5);
+      width: 24px;
     }
     
     .figtree-title {
@@ -2328,7 +2327,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       projectsContainer.innerHTML = '';
       
       if (projects.length === 0) {
-        projectsContainer.innerHTML = '<div class="figtree-empty">No projects found<br/><br/>Add a project by pasting the Figma file URL into the input field above.</div>';
+        projectsContainer.innerHTML = '<div class="figtree-empty"><img src="https://files.getfigtree.com/figtree-projects-empty.png" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found<br/><br/>Add a project by pasting the Figma file URL into the input field above.</div>';
       } else {
         // Add project items
         projects.forEach(project => {
