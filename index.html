@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figtree - Your Figma Project Navigator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0D99FF;
+            --primary-dark: #0B87E0;
+            --text: #FFFFFF;
+            --text-light: #A0A0A0;
+            --background: #1A1A1A;
+            --background-alt: #242424;
+            --border: #333333;
+            --card-bg: #2A2A2A;
+            --card-hover: #333333;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+            color: var(--text);
+            background: var(--background);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        header {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--background);
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(26, 26, 26, 0.8);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo span {
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .nav {
+            display: flex;
+            gap: 32px;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav a:hover {
+            color: var(--text);
+        }
+
+        .hero {
+            padding: 160px 0 80px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--background) 0%, var(--background-alt) 100%);
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            line-height: 1.2;
+            background: linear-gradient(135deg, var(--text) 0%, var(--text-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0;
+        }
+
+        .features {
+            padding: 80px 0;
+            background: var(--background);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .feature {
+            background: var(--card-bg);
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow);
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+        }
+
+        .feature:hover {
+            background: var(--card-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px var(--shadow);
+        }
+
+        .feature img {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 24px;
+            filter: brightness(0.9);
+        }
+
+        .feature h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .feature p {
+            color: var(--text-light);
+        }
+
+        .demo {
+            padding: 80px 0;
+            text-align: center;
+            background: var(--background-alt);
+        }
+
+        .demo h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: var(--text);
+        }
+
+        .demo img {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        footer {
+            padding: 40px 0;
+            background: var(--background);
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            color: var(--text-light);
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero p {
+                font-size: 16px;
+            }
+
+            .nav {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <a href="#" class="logo">
+                <img src="https://files.milesgilbert.xyz/figtree-icon-transparent.png" alt="Figtree Logo" style="filter: saturate(0) brightness(10);">
+                <span>Figtree</span>
+            </a>
+            <nav class="nav">
+                <a href="/found-a-bug">Found a bug?</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Navigate Figma projects from anywhere.</h1>
+            <p>Figtree is a simple Chrome extension that lets you quickly copy links to Figma files, pages, and frames. Stay in the flow while writing feedback, giving direction, and referencing your team's projects.</p>
+            <a href="#" class="cta-button">
+                <img src="images/chrome-web-store-badge.png" alt="Add to Chrome">
+            </a>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div class="features-grid">
+                <div class="feature">
+                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=📁" alt="Project Management">
+                    <h3>Share exactly what you need.</h3>
+                    <p>Quickly copy direct links to any layer in your Figma projects without leaving your current tab.</p>
+                </div>
+                <div class="feature">
+                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=📌" alt="Pin Important Items">
+                    <h3>Pin important items.</h3>
+                    <p>Pin frequently accessed frames, pages, and projects for instant access.</p>
+                </div>
+                <div class="feature">
+                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🔍" alt="Smart Search">
+                    <h3>Search your files.</h3>
+                    <p>Find specific pages, frames, and groups in your Figma files instantly with powerful search functionality.</p>
+                </div>
+                <div class="feature">
+                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🔗" alt="Frame Previews">
+                    <h3>Stay local.</h3>
+                    <p>All data is cached locally and never sent to the cloud. Figma access is read-only.</p>
+                </div>
+                <div class="feature">
+                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🖼️" alt="Frame Previews">
+                    <h3>See into your projects.</h3>
+                    <p>Visual previews of frames and groups help you quickly identify the right content.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>A project by <a href="https://milesgilbert.xyz">Miles Gilbert</a></p>
+        </div>
+    </footer>
+</body>
+</html> 

@@ -18,7 +18,7 @@ function generateState() {
 function getRedirectUrl() {
   const extensionId = chrome.runtime.id;
   //return `chrome-extension://${extensionId}/oauth.html`;
-  return 'https://brainnews.github.io/figtree/oauth.html'
+  return 'https://www.getfigtree.com/welcome'
 }
 
 // Exchange authorization code for access token
@@ -127,7 +127,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       }
       
       // Close the OAuth tab
-      chrome.tabs.remove(tabId);
+      //chrome.tabs.remove(tabId);
       
       // Don't show the panel - just store the token
     } catch (error) {
