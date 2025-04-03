@@ -246,7 +246,7 @@ function createFigtreeUI() {
       </div>
     </div>
     <div class="figtree-add-project">
-      <input type="text" class="figtree-url-input" placeholder="Add Figma file by URL">
+      <input type="text" class="figtree-url-input" placeholder="Add Figma project by URL">
       <button class="figtree-add-button">
         <span class="material-symbols-outlined">add</span>
       </button>
@@ -2351,6 +2351,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     
     return true; // We will send a response asynchronously
+  }
+  
+  if (message.action === 'authorizationStateChanged') {
+    if (message.isAuthorized) {
+      // Update the access token and refresh the UI
+      chrome.storage.local.get(['figma_access_token'], (result) => {
+        if (result.figma_access_token) {
+          accessToken = result.figma_access_token;
+          // Refresh the UI if it's open
+          if (panelState.isOpen && panelState.container) {
+            const projectsContainer = panelState.container.querySelector('.figtree-projects');
+            if (projectsContainer) {
+              projectsContainer.innerHTML = '';
+              projectsContainer.appendChild(createLoadingItem());
+              fetchProjectPages(null, panelState.container);
+            }
+          }
+        }
+      });
+    }
   }
   
   return false; // We don't handle any other messages

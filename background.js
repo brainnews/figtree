@@ -461,80 +461,31 @@ async function showProjects() {
 
 // Handle OAuth response
 async function handleOAuthResponse(code, state) {
-  console.log('Starting OAuth response handling:', { code, state });
-  
-  if (!code || !state) {
-    throw new Error('Missing code or state parameter');
-  }
-
-  // Verify state matches what we stored
-  const storedState = await chrome.storage.local.get('oauth_state');
-  console.log('Stored state:', storedState);
-  console.log('Received state:', state);
-  
-  if (storedState.oauth_state !== state) {
-    throw new Error('State mismatch');
-  }
-
   try {
-    // Get the redirect URI
-    const redirectUri = getRedirectUrl();
-    console.log('Using redirect URI:', redirectUri);
-
     // Exchange code for token
-    const tokenResponse = await fetch('https://api.figma.com/v1/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: 'qTujZ7BNoSdMdVikl3RaeD',
-        client_secret: 'aZy7fIw50AZmEyvriMdz0tnousQQYV',
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri
-      })
-    });
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('Token exchange failed:', errorData);
-      throw new Error('Token exchange failed');
-    }
-
-    const tokenData = await tokenResponse.json();
-    console.log('Token exchange successful');
-
-    // Store the access token
-    await chrome.storage.local.set({
-      figma_access_token: tokenData.access_token,
-      figma_refresh_token: tokenData.refresh_token
-    });
-
-    // Get user info
-    const userResponse = await fetch('https://api.figma.com/v1/me', {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
+    const token = await exchangeCodeForToken(code);
+    
+    // Store the token
+    await chrome.storage.local.set({ figma_access_token: token });
+    accessToken = token;
+    
+    // Broadcast the new authorization state to all tabs
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'authorizationStateChanged',
+          isAuthorized: true
+        });
+      } catch (error) {
+        // Ignore errors for tabs where content script isn't loaded
+        console.debug('Could not send message to tab:', tab.id);
       }
-    });
-
-    if (!userResponse.ok) {
-      throw new Error('Failed to get user info');
     }
-
-    const userData = await userResponse.json();
-    console.log('User info retrieved:', userData);
-
-    // Store user info
-    await chrome.storage.local.set({
-      figma_user: userData
-    });
-
-    // Return success - projects will be fetched when needed
-    return { success: true };
-
+    
+    return true;
   } catch (error) {
-    console.error('Error in handleOAuthResponse:', error);
+    console.error('Error handling OAuth response:', error);
     throw error;
   }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Figtree</title>
+    <title>Thanks for installing Figtree</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
@@ -20,6 +20,7 @@
             --shadow: rgba(0, 0, 0, 0.3);
             --green: #03c601;
             --purple: #712c7f;
+            --purple-dark: #51215f;
             --wood: #2E1104;
         }
 
@@ -37,7 +38,7 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 650px;
             margin: 0 auto;
             padding: 0 24px;
             width: 100%;
@@ -45,7 +46,7 @@
 
         .hero {
             padding: 60px 0;
-            background: linear-gradient(180deg, var(--background) 0%, var(--purple) 100%);
+            background: linear-gradient(180deg, var(--background) 0%, var(--purple-dark) 100%);
             text-align: center;
         }
 
@@ -63,9 +64,9 @@
 
         .hero p {
             font-size: 18px;
-            color: var(--text-light);
+            color: var(--text);
             max-width: 600px;
-            margin: 0 auto 40px;
+            margin: 0 auto;
         }
 
         .steps {
@@ -73,12 +74,7 @@
         }
 
         .step {
-            background: var(--card-bg);
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px var(--shadow);
-            margin-bottom: 24px;
-            border: 1px solid var(--border);
+            margin-bottom: 44px;
             display: flex;
             align-items: flex-start;
             gap: 24px;
@@ -108,6 +104,12 @@
             margin-bottom: 16px;
         }
 
+        .step-content .material-symbols-outlined.inline-icon {
+            font-size: 20px;
+            transform: translateY(5px);
+            border-radius: 4px;
+            padding: 2px;
+        }
         .step-content a {
             color: var(--green);
             text-decoration: none;
@@ -202,7 +204,7 @@
 <body>
     <section class="hero">
         <div class="container">
-            <h1>Welcome to <span>Figtree</span></h1>
+            <h1>Thanks for installing Figtree</h1>
             <p>Let's get started by adding your first Figma project</p>
         </div>
     </section>
@@ -215,50 +217,34 @@
                     <h3>Copy your Figma project link</h3>
                     <p>Go to your Figma projects and copy the link to any project you want to add to Figtree.</p>
                     <a href="https://www.figma.com/files/team/1302457866139714517/recents-and-sharing" target="_blank">
-                        Open Figma Projects
+                        Open your Figma projects
                         <span class="material-symbols-outlined">open_in_new</span>
                     </a>
                 </div>
             </div>
-
             <div class="step">
                 <div class="step-number">2</div>
                 <div class="step-content">
+                    <h3>Open Figtree</h3>
+                    <p>Open Figtree by clicking the extension icon <img src="../icons/icon128.png" alt="Figtree icon" style="width: 28px; height: 28px; vertical-align: middle; background: var(--background-alt); border-radius: 4px; padding: 4px; transform: translateY(-2px); margin: 0 2px;"> in the top right corner of your browser.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
                     <h3>Add your project to Figtree</h3>
-                    <p>Paste the Figma project link into the input below and press enter or click the add button.</p>
-                    <div class="input-container">
-                        <input type="text" placeholder="Paste your Figma project link here" id="projectUrl">
-                        <button id="addButton">Add Project</button>
-                    </div>
+                    <p>Paste the Figma project link into the "Add Figma project by URL" input and press enter or click the add button. Figtree will automatically add the project to your list of projects.</p>
+                    <img src="add-url-zoom-in-1.png" alt="UI example for adding a project to Figtree" style="width: 298px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 12px var(--shadow);">
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>That's it!</h3>
+                    <p>Now you can start using Figtree to <span class="material-symbols-outlined inline-icon" style="color: rgb(13, 255, 126); background: rgba(13, 153, 255, 0.1);">link</span> copy links to your Figma projects. You can also <span class="material-symbols-outlined inline-icon" style="color: #FFD700; background: rgba(255, 215, 0, 0.1);">keep</span> pin projects, pages, frames, or groups to the top of the list to keep them at the top of your list.</p>
                 </div>
             </div>
         </div>
     </section>
-
-    <script>
-        document.getElementById('addButton').addEventListener('click', () => {
-            const url = document.getElementById('projectUrl').value;
-            if (url) {
-                // Send message to extension to add the project
-                chrome.runtime.sendMessage({
-                    action: 'addProject',
-                    url: url
-                });
-            }
-        });
-
-        document.getElementById('projectUrl').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const url = document.getElementById('projectUrl').value;
-                if (url) {
-                    // Send message to extension to add the project
-                    chrome.runtime.sendMessage({
-                        action: 'addProject',
-                        url: url
-                    });
-                }
-            }
-        });
-    </script>
 </body>
 </html> 
