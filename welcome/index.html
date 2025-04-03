@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thanks for installing Figtree</title>
+    <title>Welcome to Figtree</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         :root {
             --primary: #0D99FF;
@@ -17,6 +18,9 @@
             --card-bg: #2A2A2A;
             --card-hover: #333333;
             --shadow: rgba(0, 0, 0, 0.3);
+            --green: #03c601;
+            --purple: #712c7f;
+            --wood: #2E1104;
         }
 
         * {
@@ -33,78 +37,28 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 0 24px;
-        }
-
-        header {
-            padding: 24px 0;
-            border-bottom: 1px solid var(--border);
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: var(--background);
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            background: rgba(26, 26, 26, 0.8);
-        }
-
-        .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            color: var(--text);
-        }
-
-        .logo img {
-            width: 32px;
-            height: 32px;
-        }
-
-        .logo span {
-            font-weight: 600;
-            font-size: 18px;
-        }
-
-        .nav {
-            display: flex;
-            gap: 32px;
-        }
-
-        .nav a {
-            text-decoration: none;
-            color: var(--text-light);
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .nav a:hover {
-            color: var(--text);
+            width: 100%;
         }
 
         .hero {
-            padding: 160px 0 80px;
+            padding: 60px 0;
+            background: linear-gradient(180deg, var(--background) 0%, var(--purple) 100%);
             text-align: center;
-            background: linear-gradient(180deg, var(--background) 0%, var(--background-alt) 100%);
         }
 
         .hero h1 {
-            font-size: 48px;
+            font-size: 36px;
             font-weight: 700;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             line-height: 1.2;
-            background: linear-gradient(135deg, var(--text) 0%, var(--text-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text);
+        }
+
+        .hero h1 span {
+            color: var(--green);
         }
 
         .hero p {
@@ -114,160 +68,197 @@
             margin: 0 auto 40px;
         }
 
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            padding: 0;
+        .steps {
+            padding: 60px 0;
         }
 
-        .features {
-            padding: 80px 0;
-            background: var(--background);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
-            margin-top: 40px;
-        }
-
-        .feature {
+        .step {
             background: var(--card-bg);
             padding: 32px;
             border-radius: 12px;
             box-shadow: 0 4px 12px var(--shadow);
-            transition: all 0.2s;
-            border: 1px solid var(--border);
-        }
-
-        .feature:hover {
-            background: var(--card-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px var(--shadow);
-        }
-
-        .feature img {
-            width: 48px;
-            height: 48px;
             margin-bottom: 24px;
-            filter: brightness(0.9);
-        }
-
-        .feature h3 {
-            font-size: 20px;
-            margin-bottom: 16px;
-            color: var(--text);
-        }
-
-        .feature p {
-            color: var(--text-light);
-        }
-
-        .demo {
-            padding: 80px 0;
-            text-align: center;
-            background: var(--background-alt);
-        }
-
-        .demo h2 {
-            font-size: 36px;
-            margin-bottom: 40px;
-            color: var(--text);
-        }
-
-        .demo img {
-            max-width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px var(--shadow);
             border: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
         }
 
-        footer {
-            padding: 40px 0;
-            background: var(--background);
-            text-align: center;
-            border-top: 1px solid var(--border);
+        .step-number {
+            background: var(--green);
+            color: var(--background);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
         }
 
-        footer p {
+        .step-content h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        .step-content p {
             color: var(--text-light);
+            margin-bottom: 16px;
+        }
+
+        .step-content a {
+            color: var(--green);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+
+        .step-content a:hover {
+            opacity: 0.8;
+        }
+
+        .step-content a .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--background-alt);
+            color: var(--text);
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-container input:focus {
+            border-color: var(--green);
+        }
+
+        .input-container button {
+            background: var(--green);
+            color: var(--background);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .input-container button:hover {
+            opacity: 0.9;
         }
 
         @media (max-width: 768px) {
+            .container {
+                padding: 0 16px;
+            }
+
+            .hero {
+                padding: 40px 0;
+            }
+
             .hero h1 {
-                font-size: 36px;
+                font-size: 28px;
             }
 
             .hero p {
                 font-size: 16px;
             }
 
-            .nav {
-                display: none;
+            .steps {
+                padding: 40px 0;
+            }
+
+            .step {
+                padding: 24px;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            .input-container button {
+                width: 100%;
             }
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="container header-content">
-            <a href="#" class="logo">
-                <img src="https://files.milesgilbert.xyz/figtree-icon-transparent.png" alt="Figtree Logo" style="filter: saturate(0) brightness(10);">
-                <span>Figtree</span>
-            </a>
-            <nav class="nav">
-                <a href="../found-a-bug">Found a bug?</a>
-            </nav>
-        </div>
-    </header>
-
     <section class="hero">
         <div class="container">
-            <h1>Thanks for installing Figtree.</h1>
-            <p>Figtree is a simple Chrome extension that lets you quickly copy links to Figma files, pages, and frames. Stay in the flow while writing feedback, giving direction, and referencing your team's projects.</p>
-            <a href="#" class="cta-button">
-                <img src="../images/chrome-web-store-badge.png" alt="Add to Chrome">
-            </a>
+            <h1>Welcome to <span>Figtree</span></h1>
+            <p>Let's get started by adding your first Figma project</p>
         </div>
     </section>
 
-    <section class="features" id="features">
+    <section class="steps">
         <div class="container">
-            <div class="features-grid">
-                <div class="feature">
-                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=📁" alt="Project Management">
-                    <h3>Share exactly what you need.</h3>
-                    <p>Quickly copy direct links to any layer in your Figma projects without leaving your current tab.</p>
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Copy your Figma project link</h3>
+                    <p>Go to your Figma projects and copy the link to any project you want to add to Figtree.</p>
+                    <a href="https://www.figma.com/files/team/1302457866139714517/recents-and-sharing" target="_blank">
+                        Open Figma Projects
+                        <span class="material-symbols-outlined">open_in_new</span>
+                    </a>
                 </div>
-                <div class="feature">
-                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=📌" alt="Pin Important Items">
-                    <h3>Pin important items.</h3>
-                    <p>Pin frequently accessed frames, pages, and projects for instant access.</p>
-                </div>
-                <div class="feature">
-                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🔍" alt="Smart Search">
-                    <h3>Search your files.</h3>
-                    <p>Find specific pages, frames, and groups in your Figma files instantly with powerful search functionality.</p>
-                </div>
-                <div class="feature">
-                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🔗" alt="Frame Previews">
-                    <h3>Stay local.</h3>
-                    <p>All data is cached locally and never sent to the cloud. Figma access is read-only.</p>
-                </div>
-                <div class="feature">
-                    <img src="https://placehold.co/48x48/0D99FF/FFFFFF?text=🖼️" alt="Frame Previews">
-                    <h3>See into your projects.</h3>
-                    <p>Visual previews of frames and groups help you quickly identify the right content.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Add your project to Figtree</h3>
+                    <p>Paste the Figma project link into the input below and press enter or click the add button.</p>
+                    <div class="input-container">
+                        <input type="text" placeholder="Paste your Figma project link here" id="projectUrl">
+                        <button id="addButton">Add Project</button>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <footer>
-        <div class="container">
-            <p>A project by <a href="https://milesgilbert.xyz">Miles Gilbert</a></p>
-        </div>
-    </footer>
+    <script>
+        document.getElementById('addButton').addEventListener('click', () => {
+            const url = document.getElementById('projectUrl').value;
+            if (url) {
+                // Send message to extension to add the project
+                chrome.runtime.sendMessage({
+                    action: 'addProject',
+                    url: url
+                });
+            }
+        });
+
+        document.getElementById('projectUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const url = document.getElementById('projectUrl').value;
+                if (url) {
+                    // Send message to extension to add the project
+                    chrome.runtime.sendMessage({
+                        action: 'addProject',
+                        url: url
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 </html> 
