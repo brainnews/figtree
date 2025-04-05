@@ -2,6 +2,13 @@
 const FIGMA_API_BASE = 'https://api.figma.com/v1';
 const FIGMA_OAUTH_URL = 'https://www.figma.com/oauth';
 const FIGMA_TOKEN_URL = 'https://api.figma.com/v1/oauth/token';
+
+// OAuth configuration
+const IS_PRODUCTION = true; // This should match config.js
+const OAUTH_REDIRECT_URL = IS_PRODUCTION
+  ? 'https://getfigtree.com/oauth.html'
+  : chrome.runtime.getURL('oauth.html');
+
 let accessToken = null;
 
 // Debug logging function
@@ -16,9 +23,7 @@ function generateState() {
 
 // Get the extension's redirect URL
 function getRedirectUrl() {
-  // For development, use the extension's internal OAuth page
-  const extensionId = chrome.runtime.id;
-  return `chrome-extension://${extensionId}/oauth.html`;
+  return OAUTH_REDIRECT_URL;
 }
 
 // Exchange authorization code for access token
@@ -68,10 +73,10 @@ chrome.runtime.onInstalled.addListener(() => {
   debugLog('Extension installed/updated');
   
   // Check if we have a stored access token
-  chrome.storage.local.get(['figmaAccessToken'], function(result) {
+  chrome.storage.local.get(['figma_access_token'], function(result) {
     debugLog('Checking stored token:', result);
-    if (result.figmaAccessToken) {
-      accessToken = result.figmaAccessToken;
+    if (result.figma_access_token) {
+      accessToken = result.figma_access_token;
       debugLog('Found stored token');
     }
   });
@@ -81,6 +86,55 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Received message:', message);
   
+  if (message.action === 'contentScriptReady' && message.needsAuthCheck) {
+    // If we have a token in memory or storage, send it to the content script
+    chrome.storage.local.get(['figma_access_token'], async (result) => {
+      if (result.figma_access_token) {
+        try {
+          // Verify the token is still valid
+          const isValid = await verifyToken(result.figma_access_token);
+          if (isValid) {
+            // Send the token to the content script
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: 'authorizationStateChanged',
+              isAuthorized: true,
+              accessToken: result.figma_access_token
+            });
+          }
+        } catch (error) {
+          console.debug('Error verifying token:', error);
+        }
+      }
+    });
+    return false;
+  }
+
+  if (message.action === 'checkAuthorization') {
+    // Check if we have a valid token and send it to the content script
+    chrome.storage.local.get(['figma_access_token'], async (result) => {
+      if (result.figma_access_token) {
+        try {
+          // Verify the token is still valid
+          const isValid = await verifyToken(result.figma_access_token);
+          if (isValid) {
+            // Send the token to the content script
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: 'authorizationStateChanged',
+              isAuthorized: true,
+              accessToken: result.figma_access_token
+            });
+            return;
+          }
+        } catch (error) {
+          console.debug('Error verifying token:', error);
+        }
+      }
+      // If we get here, we need to start the OAuth flow
+      startOAuthFlow();
+    });
+    return false;
+  }
+
   if (message.action === 'handleOAuthResponse') {
     console.log('Handling OAuth response:', message);
     handleOAuthResponse(message.code, message.state)
@@ -185,9 +239,22 @@ async function verifyToken(token) {
         'Authorization': `Bearer ${token}`
       }
     });
-    return response.ok;
+    
+    if (response.ok) {
+      // Update in-memory token if valid
+      accessToken = token;
+      return true;
+    }
+    
+    // If token is invalid, clear it
+    accessToken = null;
+    await chrome.storage.local.remove('figma_access_token');
+    return false;
   } catch (error) {
     debugLog('Error verifying token:', error);
+    // On error, clear token to be safe
+    accessToken = null;
+    await chrome.storage.local.remove('figma_access_token');
     return false;
   }
 }
@@ -263,7 +330,10 @@ chrome.action.onClicked.addListener(async (tab) => {
     // First try to get token from memory
     if (!accessToken) {
       // If not in memory, try to get from storage
-      accessToken = await getAccessToken();
+      const result = await chrome.storage.local.get(['figma_access_token']);
+      if (result.figma_access_token) {
+        accessToken = result.figma_access_token;
+      }
     }
     
     if (!accessToken) {
@@ -281,9 +351,19 @@ chrome.action.onClicked.addListener(async (tab) => {
       startOAuthFlow();
       return;
     }
-    
-    // Token is valid, show panel and fetch projects
-    await injectContentScript(tab);
+
+    // Token is valid, ensure content script is injected
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+    } catch (error) {
+      // If script is already injected, this will fail, which is fine
+      debugLog('Content script already injected or injection failed:', error);
+    }
+
+    // Show panel in the clicked tab
     await sendMessageToContentScript(tab.id, { 
       action: 'showProjects',
       accessToken,
@@ -469,19 +549,27 @@ async function handleOAuthResponse(code, state) {
     await chrome.storage.local.set({ figma_access_token: token });
     accessToken = token;
     
-    // Broadcast the new authorization state to all tabs
+    // Get all tabs and inject content script
     const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
+    await Promise.all(tabs.map(async (tab) => {
       try {
+        // First inject the content script
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+        
+        // Then send the authorization message
         await chrome.tabs.sendMessage(tab.id, {
           action: 'authorizationStateChanged',
-          isAuthorized: true
+          isAuthorized: true,
+          accessToken: token
         });
       } catch (error) {
         // Ignore errors for tabs where content script isn't loaded
         console.debug('Could not send message to tab:', tab.id);
       }
-    }
+    }));
     
     return true;
   } catch (error) {

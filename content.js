@@ -251,12 +251,6 @@ function createFigtreeUI() {
         <span class="material-symbols-outlined">add</span>
       </button>
     </div>
-    <div class="figtree-search">
-      <input type="text" class="figtree-search-input" placeholder="Search projects...">
-      <button class="figtree-search-clear" style="display: none;">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
     <div class="figtree-pinned-items">
       <div class="figtree-pinned-items-header">
         <span>Pinned</span>
@@ -265,6 +259,12 @@ function createFigtreeUI() {
         </button>
       </div>
       <div class="figtree-pinned-items-content"></div>
+    </div>
+    <div class="figtree-search">
+      <input type="text" class="figtree-search-input" placeholder="Search projects...">
+      <button class="figtree-search-clear" style="display: none;">
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
     <div class="figtree-projects"></div>
     <div class="figtree-settings-panel">
@@ -678,6 +678,7 @@ function createFigtreeUI() {
     .figtree-search {
       padding: 12px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       align-items: center;
       gap: 10px;
@@ -2244,6 +2245,9 @@ async function copyToClipboard(text) {
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'showProjects') {
+    // Always use the token from the message
+    accessToken = message.accessToken;
+    
     // Create and show UI immediately with loading state
     const container = createFigtreeUI();
     const projectsContainer = container.querySelector('.figtree-projects');
@@ -2254,18 +2258,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       projectsContainer.appendChild(createLoadingItem('Loading projects...'));
     }
     
-    // Send response immediately
-    sendResponse({ success: true });
-    return false; // We're not sending an async response
-  }
-  
-  if (message.action === 'closePanel') {
-    // Find and remove any existing panels
-    if (panelState.container) {
-      panelState.container.remove();
-      panelState.container = null;
-      panelState.isOpen = false;
-    }
     sendResponse({ success: true });
     return false;
   }
@@ -2277,7 +2269,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
     
+    // Always use the token from the message
     accessToken = message.accessToken;
+    
     const projectsContainer = panelState.container.querySelector('.figtree-projects');
     if (!projectsContainer) {
       sendResponse({ success: false, error: 'Projects container not found' });
@@ -2298,21 +2292,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           
           const fileData = await fileResponse.json();
           nodeCache.set(project.key, fileData);
-          
-          // Get the root node ID from the file data
-          const rootNodeId = fileData.document.id;
-          
-          // Fetch root node data
-          const nodesResponse = await fetch(`${FIGMA_API_BASE}/files/${project.key}/nodes?ids=${rootNodeId}`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-          });
-          
-          if (nodesResponse.ok) {
-            const nodesData = await nodesResponse.json();
-            Object.entries(nodesData.nodes).forEach(([nodeId, node]) => {
-              nodeCache.set(`${project.key}_${nodeId}`, node);
-            });
-          }
         }
         
         return {
@@ -2354,23 +2333,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'authorizationStateChanged') {
-    if (message.isAuthorized) {
-      // Update the access token and refresh the UI
-      chrome.storage.local.get(['figma_access_token'], (result) => {
-        if (result.figma_access_token) {
-          accessToken = result.figma_access_token;
-          // Refresh the UI if it's open
-          if (panelState.isOpen && panelState.container) {
-            const projectsContainer = panelState.container.querySelector('.figtree-projects');
-            if (projectsContainer) {
-              projectsContainer.innerHTML = '';
-              projectsContainer.appendChild(createLoadingItem());
-              fetchProjectPages(null, panelState.container);
-            }
-          }
-        }
-      });
+    // Always update the token when receiving an auth state change
+    accessToken = message.accessToken;
+    
+    // Store the token in storage
+    chrome.storage.local.set({ figma_access_token: message.accessToken });
+    
+    // Clear any existing panel to ensure fresh state
+    if (panelState.container) {
+      panelState.container.remove();
+      panelState.container = null;
+      panelState.isOpen = false;
     }
+    
+    // Clear the node cache
+    nodeCache.clear();
+    
+    sendResponse({ success: true });
+    return false;
   }
   
   return false; // We don't handle any other messages
@@ -2454,4 +2434,25 @@ async function loadFramePreview(fileKey, frame, previewContainer) {
     console.error('Error loading frame preview:', error);
     previewContainer.innerHTML = '<div class="figtree-error">Failed to load preview</div>';
   }
-} 
+}
+
+// Initialize content script
+(async function initializeContentScript() {
+  try {
+    // Try to get token from storage on content script initialization
+    const result = await chrome.storage.local.get(['figma_access_token']);
+    if (result.figma_access_token) {
+      accessToken = result.figma_access_token;
+      panelState.isAuthorized = true;
+    }
+
+    // Notify the background script that we're ready and check authorization
+    chrome.runtime.sendMessage({ 
+      action: 'contentScriptReady',
+      needsAuthCheck: true
+    });
+  } catch (error) {
+    console.error('Error initializing content script:', error);
+  }
+})();
+  

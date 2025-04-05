@@ -6,7 +6,10 @@ function handleOAuthResponse() {
   const state = urlParams.get('state');
 
   if (!code || !state) {
-    window.location.href = 'https://www.getfigtree.com/error?reason=missing_params';
+    const errorUrl = window.IS_PRODUCTION
+      ? 'https://getfigtree.com/error?reason=missing_params'
+      : chrome.runtime.getURL('error.html?reason=missing_params');
+    window.location.href = errorUrl;
     return;
   }
 
@@ -18,15 +21,24 @@ function handleOAuthResponse() {
   }, (response) => {
     if (chrome.runtime.lastError) {
       console.error('Error sending message:', chrome.runtime.lastError);
-      window.location.href = 'https://www.getfigtree.com/error?reason=message_failed';
+      const errorUrl = window.IS_PRODUCTION
+        ? 'https://getfigtree.com/error?reason=message_failed'
+        : chrome.runtime.getURL('error.html?reason=message_failed');
+      window.location.href = errorUrl;
       return;
     }
 
     if (response && response.success) {
-      window.location.href = 'https://www.getfigtree.com/welcome';
+      const welcomeUrl = window.IS_PRODUCTION
+        ? 'https://getfigtree.com/welcome'
+        : chrome.runtime.getURL('welcome/index.html');
+      window.location.href = welcomeUrl;
     } else {
       const reason = response?.error || 'unknown';
-      window.location.href = `https://www.getfigtree.com/error?reason=${encodeURIComponent(reason)}`;
+      const errorUrl = window.IS_PRODUCTION
+        ? `https://getfigtree.com/error?reason=${encodeURIComponent(reason)}`
+        : chrome.runtime.getURL(`error.html?reason=${encodeURIComponent(reason)}`);
+      window.location.href = errorUrl;
     }
   });
 }
