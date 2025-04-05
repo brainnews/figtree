@@ -199,9 +199,20 @@
                 width: 100%;
             }
         }
+
+        .version {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            font-size: 12px;
+            color: var(--text-light);
+            opacity: 0.7;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
+    <div class="version">Version: Emerald-2024-04-05-2100</div>
     <section class="hero">
         <div class="container">
             <h1>Thanks for installing Figtree</h1>
@@ -256,23 +267,27 @@
             const state = urlParams.get('state');
             
             if (code && state) {
-                // Send a message to the extension to handle the OAuth response
-                chrome.runtime.sendMessage({
-                    action: 'handleOAuthResponse',
-                    code: code,
-                    state: state
-                }, (response) => {
-                    if (chrome.runtime.lastError || !response?.success) {
-                        console.error('Error handling OAuth response:', chrome.runtime.lastError || response?.error);
+                // Check if we're in the extension context
+                if (typeof chrome !== 'undefined' && chrome.runtime) {
+                    // Send a message to the extension to handle the OAuth response
+                    chrome.runtime.sendMessage({
+                        action: 'handleOAuthResponse',
+                        code: code,
+                        state: state
+                    }, (response) => {
+                        if (chrome.runtime.lastError || !response?.success) {
+                            console.error('Error handling OAuth response:', chrome.runtime.lastError || response?.error);
+                        }
                         // Remove the OAuth parameters from the URL to prevent retrying
                         const newUrl = window.location.pathname;
                         window.history.replaceState({}, document.title, newUrl);
-                    } else {
-                        // Remove the OAuth parameters from the URL
-                        const newUrl = window.location.pathname;
-                        window.history.replaceState({}, document.title, newUrl);
-                    }
-                });
+                    });
+                } else {
+                    console.log('Not in extension context, skipping OAuth handling');
+                    // Remove the OAuth parameters from the URL
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
             }
         }
     </script>

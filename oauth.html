@@ -63,6 +63,16 @@
       margin: 0 auto 1.5rem;
     }
 
+    .version {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      font-size: 12px;
+      color: var(--text-light);
+      opacity: 0.7;
+      font-family: monospace;
+    }
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -81,7 +91,12 @@
     <div class="spinner"></div>
     <h2>Completing authorization...</h2>
   </div>
+  <div class="version">Version: Sapphire-2024-04-05-2045</div>
   <script src="config.js"></script>
+  <script>
+    // Verify config.js is loaded
+    console.log('Config loaded, IS_PRODUCTION:', window.IS_PRODUCTION);
+  </script>
   <script src="oauth.js"></script>
 </body>
 </html> 
