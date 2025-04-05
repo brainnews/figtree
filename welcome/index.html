@@ -246,5 +246,35 @@
             </div>
         </div>
     </section>
+
+    <script src="../config.js"></script>
+    <script>
+        // Check if we're in production and have OAuth parameters
+        if (window.IS_PRODUCTION) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            
+            if (code && state) {
+                // Send a message to the extension to handle the OAuth response
+                chrome.runtime.sendMessage({
+                    action: 'handleOAuthResponse',
+                    code: code,
+                    state: state
+                }, (response) => {
+                    if (chrome.runtime.lastError || !response?.success) {
+                        console.error('Error handling OAuth response:', chrome.runtime.lastError || response?.error);
+                        // Remove the OAuth parameters from the URL to prevent retrying
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                    } else {
+                        // Remove the OAuth parameters from the URL
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                    }
+                });
+            }
+        }
+    </script>
 </body>
 </html> 

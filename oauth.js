@@ -6,14 +6,19 @@ function handleOAuthResponse() {
   const state = urlParams.get('state');
 
   if (!code || !state) {
-    const errorUrl = window.IS_PRODUCTION
+    window.location.href = window.IS_PRODUCTION
       ? 'https://getfigtree.com/error?reason=missing_params'
       : chrome.runtime.getURL('error.html?reason=missing_params');
-    window.location.href = errorUrl;
     return;
   }
 
-  // Send the code to the extension
+  if (window.IS_PRODUCTION) {
+    // In production, redirect to the welcome page with the code and state as query params
+    window.location.href = `https://getfigtree.com/welcome?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+    return;
+  }
+
+  // In development (extension context), send message to background script
   chrome.runtime.sendMessage({
     action: 'handleOAuthResponse',
     code: code,
@@ -21,24 +26,15 @@ function handleOAuthResponse() {
   }, (response) => {
     if (chrome.runtime.lastError) {
       console.error('Error sending message:', chrome.runtime.lastError);
-      const errorUrl = window.IS_PRODUCTION
-        ? 'https://getfigtree.com/error?reason=message_failed'
-        : chrome.runtime.getURL('error.html?reason=message_failed');
-      window.location.href = errorUrl;
+      window.location.href = chrome.runtime.getURL('error.html?reason=message_failed');
       return;
     }
 
     if (response && response.success) {
-      const welcomeUrl = window.IS_PRODUCTION
-        ? 'https://getfigtree.com/welcome'
-        : chrome.runtime.getURL('welcome/index.html');
-      window.location.href = welcomeUrl;
+      window.location.href = chrome.runtime.getURL('welcome/index.html');
     } else {
       const reason = response?.error || 'unknown';
-      const errorUrl = window.IS_PRODUCTION
-        ? `https://getfigtree.com/error?reason=${encodeURIComponent(reason)}`
-        : chrome.runtime.getURL(`error.html?reason=${encodeURIComponent(reason)}`);
-      window.location.href = errorUrl;
+      window.location.href = chrome.runtime.getURL(`error.html?reason=${encodeURIComponent(reason)}`);
     }
   });
 }
