@@ -98,5 +98,39 @@
     console.log('Config loaded, IS_PRODUCTION:', window.IS_PRODUCTION);
   </script>
   <script src="oauth.js"></script>
+  <script>
+    // Handle OAuth response
+    function handleOAuthResponse() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+
+      if (code && state) {
+        if (window.IS_PRODUCTION) {
+          // In production, redirect to the extension's welcome page
+          const extensionId = chrome.runtime.id;
+          const welcomeUrl = `chrome-extension://${extensionId}/welcome/index.html?code=${code}&state=${state}`;
+          window.location.href = welcomeUrl;
+        } else {
+          // In development, send message to background script
+          chrome.runtime.sendMessage({
+            action: 'handleOAuthResponse',
+            code: code,
+            state: state
+          }, (response) => {
+            if (chrome.runtime.lastError || !response?.success) {
+              console.error('Error handling OAuth response:', chrome.runtime.lastError || response?.error);
+              window.location.href = chrome.runtime.getURL('error.html');
+            } else {
+              window.location.href = chrome.runtime.getURL('welcome/index.html');
+            }
+          });
+        }
+      }
+    }
+
+    // Execute on load
+    handleOAuthResponse();
+  </script>
 </body>
 </html> 
