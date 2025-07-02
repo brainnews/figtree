@@ -407,31 +407,15 @@ function startExternalOAuthPolling(expectedState, oauthTabId = null) {
   // Poll for OAuth response in a content script
   oauthPollingInterval = setInterval(async () => {
     try {
-      let tabsToCheck = [];
-      
-      // If we have a specific OAuth tab ID, check it first
-      if (oauthTabId) {
-        try {
-          const oauthTab = await chrome.tabs.get(oauthTabId);
-          if (oauthTab && oauthTab.url) {
-            debugLog('Checking specific OAuth tab:', oauthTab.url);
-            tabsToCheck.push(oauthTab);
-          } else {
-            debugLog('OAuth tab not found or has no URL');
-          }
-        } catch (e) {
-          debugLog('Error getting OAuth tab:', e.message);
-          // Tab might have been closed, continue with general search
-        }
-      }
-      
-      // Also search for getfigtree.com tabs as fallback
+      // Always search for getfigtree.com tabs (OAuth redirect destination)
       const urlPatterns = [
         'https://www.getfigtree.com/*',
         'https://getfigtree.com/*',
         '*://www.getfigtree.com/*',
         '*://getfigtree.com/*'
       ];
+      
+      let tabsToCheck = [];
       
       for (const pattern of urlPatterns) {
         try {
@@ -442,23 +426,41 @@ function startExternalOAuthPolling(expectedState, oauthTabId = null) {
         }
       }
       
+      // If we have a specific OAuth tab ID, prioritize it
+      if (oauthTabId) {
+        try {
+          const oauthTab = await chrome.tabs.get(oauthTabId);
+          if (oauthTab && oauthTab.url && oauthTab.url.includes('getfigtree.com')) {
+            debugLog('Prioritizing specific OAuth tab:', oauthTab.url);
+            // Remove from list if already there, then add to front
+            tabsToCheck = tabsToCheck.filter(tab => tab.id !== oauthTabId);
+            tabsToCheck.unshift(oauthTab);
+          }
+        } catch (e) {
+          debugLog('Error getting OAuth tab:', e.message);
+        }
+      }
+      
       // Remove duplicates by tab ID
       const uniqueTabs = tabsToCheck.filter((tab, index, self) => 
         index === self.findIndex(t => t.id === tab.id)
       );
       
       if (uniqueTabs.length === 0) {
-        debugLog('No tabs found for OAuth polling');
+        debugLog('No getfigtree.com tabs found for OAuth polling');
         return;
       }
       
-      debugLog(`Found ${uniqueTabs.length} tabs to check for OAuth response`);
+      debugLog(`Found ${uniqueTabs.length} getfigtree.com tabs to check for OAuth response`);
       
       for (const tab of uniqueTabs) {
         try {
-          const success = await checkTabForOAuthResponse(tab.id, expectedState);
-          if (success) {
-            return; // OAuth response processed successfully
+          // Only check tabs that are actually on getfigtree.com
+          if (tab.url && tab.url.includes('getfigtree.com')) {
+            const success = await checkTabForOAuthResponse(tab.id, expectedState);
+            if (success) {
+              return; // OAuth response processed successfully
+            }
           }
         } catch (error) {
           // Ignore errors for individual tabs (might be permission issues)
