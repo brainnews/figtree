@@ -6,7 +6,7 @@ let accessToken = null;
 
 // Debug logging function
 function debugLog(message, data = null) {
-  //console.log(`[Figtree] ${message}`, data || '');
+  console.log(`[Figtree] ${message}`, data || '');
 }
 
 // Generate a random state string
@@ -14,11 +14,49 @@ function generateState() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
+// PKCE utility functions
+function generateCodeVerifier() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(new Uint8Array(digest));
+}
+
+function base64URLEncode(array) {
+  const base64 = btoa(String.fromCharCode.apply(null, array));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
 // Get the extension's redirect URL
 function getRedirectUrl() {
-  // For development, use the extension's internal OAuth page
   const extensionId = chrome.runtime.id;
-  return `chrome-extension://${extensionId}/oauth.html`;
+  debugLog('Current extension ID:', extensionId);
+  
+  // Check if we have development configuration
+  if (typeof DEV_CONFIG !== 'undefined' && !IS_PRODUCTION) {
+    if (DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
+      debugLog('Using external redirect URL for development');
+      return DEV_CONFIG.EXTERNAL_REDIRECT_URL;
+    }
+    
+    if (DEV_CONFIG.USE_FIXED_EXTENSION_ID && DEV_CONFIG.FIXED_EXTENSION_ID !== 'your-fixed-extension-id-here') {
+      const redirectUrl = `chrome-extension://${DEV_CONFIG.FIXED_EXTENSION_ID}/oauth.html`;
+      debugLog('Using fixed extension ID for development:', redirectUrl);
+      return redirectUrl;
+    }
+  }
+  
+  // Default: use current extension ID
+  const redirectUrl = `chrome-extension://${extensionId}/oauth.html`;
+  debugLog('Using current extension ID redirect URL:', redirectUrl);
+  
+  return redirectUrl;
 }
 
 // Exchange authorization code for access token
@@ -26,37 +64,76 @@ async function exchangeCodeForToken(code) {
   debugLog('Exchanging code for token');
   try {
     const clientId = chrome.runtime.getManifest().oauth2.client_id;
-    const clientSecret = chrome.runtime.getManifest().oauth2.client_secret;
     const redirectUri = getRedirectUrl();
     
     debugLog('Using client ID:', clientId);
     debugLog('Using redirect URI:', redirectUri);
     
-    const formData = new URLSearchParams();
-    formData.append('client_id', clientId);
-    formData.append('client_secret', clientSecret);
-    formData.append('redirect_uri', redirectUri);
-    formData.append('code', code);
-    formData.append('grant_type', 'authorization_code');
+    // For external OAuth, we need to use a proxy service because
+    // Figma requires client_secret which can't be stored in extensions
+    if (typeof DEV_CONFIG !== 'undefined' && DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
+      debugLog('Using external token exchange service');
+      
+      // Make request to your server that handles the token exchange
+      const response = await fetch('https://www.getfigtree.com/api/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code,
+          redirect_uri: redirectUri,
+          client_id: clientId
+        })
+      });
 
-    debugLog('Sending token exchange request to:', FIGMA_TOKEN_URL);
-    const response = await fetch(FIGMA_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString()
-    });
+      if (!response.ok) {
+        const errorText = await response.text();
+        debugLog('External token exchange failed:', errorText);
+        throw new Error('External token exchange failed. Server may be down.');
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      debugLog('Token exchange failed:', errorText);
-      throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
+      const data = await response.json();
+      debugLog('External token exchange successful');
+      return data.access_token;
+    } else {
+      // Direct exchange (won't work with Figma due to client_secret requirement)
+      debugLog('Attempting direct token exchange (will likely fail)');
+      
+      const formData = new URLSearchParams();
+      formData.append('client_id', clientId);
+      formData.append('redirect_uri', redirectUri);
+      formData.append('code', code);
+      formData.append('grant_type', 'authorization_code');
+      // Note: client_secret is required but we can't include it in extensions
+
+      debugLog('Sending token exchange request to:', FIGMA_TOKEN_URL);
+      debugLog('Request body:', formData.toString());
+      
+      const response = await fetch(FIGMA_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString()
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        debugLog('Token exchange failed with status:', response.status);
+        debugLog('Error response:', errorText);
+        
+        if (errorText.includes('Client secret is required')) {
+          throw new Error('Figma requires client secret. Please use external OAuth flow.');
+        }
+        
+        throw new Error('Token exchange failed');
+      }
+
+      const data = await response.json();
+      debugLog('Token exchange successful');
+      return data.access_token;
     }
-
-    const data = await response.json();
-    debugLog('Token exchange successful');
-    return data.access_token;
   } catch (error) {
     debugLog('Error exchanging code for token:', error);
     throw error;
@@ -193,7 +270,7 @@ async function verifyToken(token) {
 }
 
 // Start OAuth flow
-function startOAuthFlow() {
+async function startOAuthFlow() {
   debugLog('Starting OAuth flow');
   try {
     const clientId = chrome.runtime.getManifest().oauth2.client_id;
@@ -207,16 +284,24 @@ function startOAuthFlow() {
     });
     
     // Store the state for verification
-    chrome.storage.local.set({ oauth_state: state }, () => {
-      debugLog('Stored OAuth state');
+    await chrome.storage.local.set({ 
+      oauth_state: state
     });
+    debugLog('Stored OAuth state');
     
     const redirectUri = getRedirectUrl();
     debugLog('Using redirect URI:', redirectUri);
     
+    // Build OAuth URL (no PKCE since Figma requires client secret)
     const authUrl = `${FIGMA_OAUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
     
     debugLog('Opening OAuth URL:', authUrl);
+    
+    // If using external redirect, we need to set up polling for the response
+    if (typeof DEV_CONFIG !== 'undefined' && DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
+      debugLog('Setting up external OAuth polling');
+      startExternalOAuthPolling(state);
+    }
     
     // Open the OAuth URL in a new tab
     chrome.tabs.create({ url: authUrl });
@@ -224,6 +309,70 @@ function startOAuthFlow() {
     debugLog('Error starting OAuth flow:', error);
     throw error;
   }
+}
+
+// Poll for external OAuth responses
+let oauthPollingInterval = null;
+
+function startExternalOAuthPolling(expectedState) {
+  debugLog('Starting external OAuth polling for state:', expectedState);
+  
+  // Clear any existing polling
+  if (oauthPollingInterval) {
+    clearInterval(oauthPollingInterval);
+  }
+  
+  // Poll for OAuth response in a content script
+  oauthPollingInterval = setInterval(async () => {
+    try {
+      // Inject a content script to check localStorage on getfigtree.com
+      const tabs = await chrome.tabs.query({ url: 'https://www.getfigtree.com/*' });
+      
+      for (const tab of tabs) {
+        try {
+          const result = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              const stored = localStorage.getItem('figtree_oauth_response');
+              if (stored) {
+                localStorage.removeItem('figtree_oauth_response');
+                return JSON.parse(stored);
+              }
+              return null;
+            }
+          });
+          
+          if (result && result[0] && result[0].result) {
+            const oauthResponse = result[0].result;
+            debugLog('Found external OAuth response:', oauthResponse);
+            
+            if (oauthResponse.state === expectedState) {
+              clearInterval(oauthPollingInterval);
+              oauthPollingInterval = null;
+              
+              // Process the OAuth response
+              await handleOAuthResponse(oauthResponse.code, oauthResponse.state);
+              return;
+            }
+          }
+        } catch (error) {
+          // Ignore errors for individual tabs
+          debugLog('Error checking tab for OAuth response:', error);
+        }
+      }
+    } catch (error) {
+      debugLog('Error during OAuth polling:', error);
+    }
+  }, 2000); // Poll every 2 seconds
+  
+  // Stop polling after 5 minutes
+  setTimeout(() => {
+    if (oauthPollingInterval) {
+      clearInterval(oauthPollingInterval);
+      oauthPollingInterval = null;
+      debugLog('OAuth polling timeout');
+    }
+  }, 300000);
 }
 
 // Fetch user's projects
@@ -268,7 +417,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     
     if (!accessToken) {
       debugLog('No access token found, starting OAuth flow');
-      startOAuthFlow();
+      await startOAuthFlow();
       return;
     }
 
@@ -278,7 +427,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       debugLog('Token is invalid, starting OAuth flow');
       accessToken = null;
       await chrome.storage.local.remove('figma_access_token');
-      startOAuthFlow();
+      await startOAuthFlow();
       return;
     }
     
@@ -300,7 +449,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       
   } catch (error) {
     debugLog('Error:', error);
-    startOAuthFlow();
+    await startOAuthFlow();
   }
 });
 
@@ -342,9 +491,10 @@ async function handleImageDownload(imageUrl, accessToken, fileName) {
 // Function to inject content script
 async function injectContentScript(tab) {
   try {
+    // Inject config and content scripts
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['content.js']
+      files: ['config.js', 'content.js']
     });
   } catch (error) {
     // If the script is already injected, this will fail, which is fine
@@ -462,12 +612,31 @@ async function showProjects() {
 // Handle OAuth response
 async function handleOAuthResponse(code, state) {
   try {
+    debugLog('Handling OAuth response with code and state');
+    
+    // Validate state parameter
+    const { oauth_state } = await chrome.storage.local.get(['oauth_state']);
+    if (!oauth_state) {
+      throw new Error('No stored OAuth state found');
+    }
+    
+    if (state !== oauth_state) {
+      throw new Error('Invalid state parameter - possible CSRF attack');
+    }
+    
+    debugLog('State validation successful');
+    
     // Exchange code for token
     const token = await exchangeCodeForToken(code);
     
     // Store the token
     await chrome.storage.local.set({ figma_access_token: token });
     accessToken = token;
+    
+    // Clean up OAuth state
+    await chrome.storage.local.remove(['oauth_state']);
+    
+    debugLog('OAuth flow completed successfully');
     
     // Broadcast the new authorization state to all tabs
     const tabs = await chrome.tabs.query({});
@@ -486,6 +655,8 @@ async function handleOAuthResponse(code, state) {
     return true;
   } catch (error) {
     console.error('Error handling OAuth response:', error);
+    // Clean up any stored OAuth data on error
+    await chrome.storage.local.remove(['oauth_state', 'oauth_code_verifier']);
     throw error;
   }
 }

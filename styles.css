@@ -1,0 +1,46 @@
+/* Figtree Extension Styles */
+
+/* Material Icons replacement using Unicode symbols */
+.material-symbols-outlined {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Icon mappings using Unicode symbols where possible */
+.material-symbols-outlined::before {
+  content: attr(data-icon);
+}
+
+/* Default icon if no data-icon attribute */
+.material-symbols-outlined:not([data-icon])::before {
+  content: '⚙'; /* Default gear icon */
+}
+
+/* Common icon replacements */
+.icon-settings::before { content: '⚙'; }
+.icon-expand-more::before { content: '▼'; }
+.icon-expand-less::before { content: '▲'; }
+.icon-close::before { content: '✕'; }
+.icon-add::before { content: '+'; }
+.icon-search::before { content: '🔍'; }
+.icon-link::before { content: '🔗'; }
+.icon-check::before { content: '✓'; }
+.icon-delete::before { content: '🗑'; }
+.icon-push-pin::before { content: '📌'; }
+.icon-folder::before { content: '📁'; }
+.icon-grid::before { content: '⊞'; }
+.icon-select::before { content: '☐'; }
+.icon-refresh::before { content: '↻'; }
+.icon-error::before { content: '⚠'; }
+.icon-open-in-new::before { content: '↗'; }
+.icon-right-click::before { content: '🖱'; }

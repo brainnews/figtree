@@ -1,0 +1,25 @@
+# Cloudflare Workers configuration for Figtree OAuth
+
+name = "figtree-oauth"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Routes - this will handle requests to getfigtree.com/api/oauth/token
+[[routes]]
+pattern = "getfigtree.com/api/oauth/token"
+zone_name = "getfigtree.com"
+
+[[routes]]
+pattern = "www.getfigtree.com/api/oauth/token"
+zone_name = "getfigtree.com"
+
+# Environment variables (set these in Cloudflare dashboard)
+[env.production.vars]
+# FIGMA_CLIENT_SECRET will be set via dashboard for security
+
+# Optional: Custom domain setup
+# [env.production]
+# routes = [
+#   { pattern = "getfigtree.com/api/*", zone_name = "getfigtree.com" }
+# ]

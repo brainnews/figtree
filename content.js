@@ -231,7 +231,7 @@ function createFigtreeUI() {
   // Create the HTML structure first
   container.innerHTML = `
     <div class="figtree-header">
-      <img src="https://files.getfigtree.com/figtree-icon-transparent.png" alt="Figtree Logo" class="figtree-logo">
+      <img src="${chrome.runtime.getURL('assets/figtree-icon-transparent.png')}" alt="Figtree Logo" class="figtree-logo">
       <span class="figtree-title">Figtree</span>
       <div class="figtree-header-buttons">
         <button class="figtree-settings" title="Settings">
@@ -276,10 +276,33 @@ function createFigtreeUI() {
       </div>
       <div class="figtree-settings-content">
         <div class="figtree-settings-section">
+          <h3>Data Management</h3>
           <div class="figtree-settings-group">
             <button class="figtree-settings-button" data-action="clearPinned">
               Clear All Pinned Items
             </button>
+            <button class="figtree-settings-button" data-action="clearProjects">
+              Remove All Projects
+            </button>
+            <button class="figtree-settings-button" data-action="clearCache">
+              Clear Cache
+            </button>
+            <button class="figtree-settings-button figtree-danger-button" data-action="clearAllData">
+              Clear All Data
+            </button>
+          </div>
+        </div>
+        <div class="figtree-settings-section">
+          <h3>Privacy</h3>
+          <div class="figtree-settings-group">
+            <label>
+              <input type="checkbox" id="dataRetentionNotice" checked disabled>
+              Data is stored locally on your device only
+            </label>
+            <p class="figtree-settings-note">
+              Your project data and preferences are stored locally in your browser. 
+              No data is sent to external servers except for Figma API calls.
+            </p>
           </div>
         </div>
       </div>
@@ -406,7 +429,50 @@ function createFigtreeUI() {
         if (confirm('Are you sure you want to clear all pinned items?')) {
           chrome.storage.sync.remove(['pinnedItems'], () => {
             updatePinnedItemsDisplay(container);
+            showError('Pinned items cleared', 'info');
           });
+        }
+      });
+    }
+
+    // Handle clear all projects
+    const clearProjectsButton = container.querySelector('[data-action="clearProjects"]');
+    if (clearProjectsButton) {
+      clearProjectsButton.addEventListener('click', () => {
+        if (confirm('Are you sure you want to remove all projects? This cannot be undone.')) {
+          chrome.storage.local.remove(['figmaProjects'], () => {
+            const projectsContainer = container.querySelector('.figtree-projects');
+            projectsContainer.innerHTML = `<div class="figtree-empty"><img src="${chrome.runtime.getURL('assets/figtree-projects-empty.png')}" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>`;
+            showError('All projects removed', 'info');
+          });
+        }
+      });
+    }
+
+    // Handle clear cache
+    const clearCacheButton = container.querySelector('[data-action="clearCache"]');
+    if (clearCacheButton) {
+      clearCacheButton.addEventListener('click', () => {
+        if (confirm('Clear cached project data? Projects will need to reload next time.')) {
+          nodeCache.clear();
+          showError('Cache cleared', 'info');
+        }
+      });
+    }
+
+    // Handle clear all data
+    const clearAllDataButton = container.querySelector('[data-action="clearAllData"]');
+    if (clearAllDataButton) {
+      clearAllDataButton.addEventListener('click', () => {
+        if (confirm('⚠️ This will remove ALL data including projects, pins, and preferences. This cannot be undone. Are you sure?')) {
+          chrome.storage.local.clear();
+          chrome.storage.sync.clear();
+          nodeCache.clear();
+          showError('All data cleared', 'info');
+          // Close the panel after clearing data
+          setTimeout(() => {
+            closePanel();
+          }, 1500);
         }
       });
     }
@@ -501,14 +567,16 @@ function createFigtreeUI() {
   // Add styles
   const style = document.createElement('style');
   style.textContent = `
-    @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
     .material-symbols-outlined {
-      font-variation-settings:
-      'FILL' 0,
-      'wght' 400,
-      'GRAD' 0,
-      'opsz' 24
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
     }
     .figtree-container {
       position: fixed;
@@ -1021,6 +1089,34 @@ function createFigtreeUI() {
       background: #c82333;
     }
 
+    .figtree-danger-button {
+      background: #dc3545 !important;
+      border-color: #dc3545 !important;
+    }
+
+    .figtree-danger-button:hover {
+      background: #c82333 !important;
+    }
+
+    .figtree-settings-note {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin: 8px 0 0 0;
+      line-height: 1.4;
+    }
+
+    .figtree-settings-group label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .figtree-settings-group input[type="checkbox"] {
+      margin: 0;
+    }
+
     .figtree-search-input::placeholder {
       color: rgba(255, 255, 255, 0.4);
     }
@@ -1254,7 +1350,17 @@ function createFigtreeUI() {
       });
       
       if (!response.ok) {
-        throw new Error('Could not access file');
+        let errorMessage = 'Could not access file';
+        if (response.status === 403) {
+          errorMessage = 'Access denied. You may not have permission to view this file.';
+        } else if (response.status === 404) {
+          errorMessage = 'File not found. Please check the URL is correct.';
+        } else if (response.status === 401) {
+          errorMessage = 'Authentication expired. Please reconnect to Figma.';
+        } else if (response.status >= 500) {
+          errorMessage = 'Figma service is temporarily unavailable.';
+        }
+        throw new Error(errorMessage);
       }
       
       const fileData = await response.json();
@@ -1493,14 +1599,21 @@ function parseFileKey(url) {
   }
 }
 
-// Show error message
-function showError(message) {
+// Show error message with better categorization
+function showError(message, type = 'error') {
   const container = panelState.container;
-  if (!container) return;
+  if (!container) {
+    // Fallback to console if no container
+    console.error('[Figtree]', message);
+    return;
+  }
   
   const errorDiv = document.createElement('div');
-  errorDiv.className = 'figtree-error-toast';
-  errorDiv.textContent = message;
+  errorDiv.className = `figtree-${type}-toast`;
+  
+  // Improve error messages for common issues
+  const improvedMessage = improveErrorMessage(message, type);
+  errorDiv.textContent = improvedMessage;
   
   container.appendChild(errorDiv);
   
@@ -1520,6 +1633,17 @@ function showError(message) {
         border-radius: 4px;
         font-size: 13px;
         animation: figtree-toast 3s ease-in-out forwards;
+        max-width: 280px;
+        text-align: center;
+        z-index: 1000001;
+      }
+      
+      .figtree-warning-toast {
+        background: #FF9500;
+      }
+      
+      .figtree-info-toast {
+        background: #007AFF;
       }
       
       @keyframes figtree-toast {
@@ -1536,6 +1660,33 @@ function showError(message) {
   setTimeout(() => {
     errorDiv.remove();
   }, 3000);
+}
+
+// Improve error messages for better user experience
+function improveErrorMessage(message, type) {
+  const errorMap = {
+    'Invalid Figma URL': 'Please enter a valid Figma project URL',
+    'Project already added': 'This project is already in your list',
+    'Could not access file': 'Unable to access this Figma file. Check your permissions.',
+    'Failed to fetch': 'Network error. Please check your connection.',
+    'Token exchange failed': 'Authentication failed. Please try reconnecting.',
+    'Permission denied': 'Permission required to access this page',
+    'Failed to load': 'Failed to load data. Please try again.'
+  };
+  
+  // Check for partial matches
+  for (const [key, value] of Object.entries(errorMap)) {
+    if (message.includes(key)) {
+      return value;
+    }
+  }
+  
+  // Default fallback with helpful context
+  if (type === 'error') {
+    return `${message}. Please try again or contact support.`;
+  }
+  
+  return message;
 }
 
 // Create a project item
@@ -2334,7 +2485,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       projectsContainer.innerHTML = '';
       
       if (projects.length === 0) {
-        projectsContainer.innerHTML = '<div class="figtree-empty"><img src="https://files.getfigtree.com/figtree-projects-empty.png" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>';
+        projectsContainer.innerHTML = `<div class="figtree-empty"><img src="${chrome.runtime.getURL('assets/figtree-projects-empty.png')}" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>`;
       } else {
         // Add project items
         projects.forEach(project => {

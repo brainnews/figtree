@@ -1,0 +1,17 @@
+{
+  "name": "figtree-oauth-server",
+  "version": "1.0.0",
+  "description": "OAuth token exchange server for Figtree Chrome extension",
+  "main": "api/oauth/token.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
