@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>Figtree - OAuth Handler</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -10,35 +12,258 @@
       align-items: center;
       height: 100vh;
       margin: 0;
-      background-color: #f5f5f5;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
     }
     .container {
       text-align: center;
-      padding: 2rem;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 3rem;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+      width: 90%;
     }
     .spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #3498db;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
+      margin: 0 auto 1.5rem;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    p {
+      margin: 0 0 1rem 0;
+      opacity: 0.9;
+      line-height: 1.5;
+    }
+    .status {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-top: 1rem;
+    }
+    .success {
+      color: #4ade80;
+    }
+    .error {
+      color: #f87171;
+    }
+    button {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      margin-top: 1rem;
+    }
+    button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    .debug {
+      font-size: 0.8rem;
+      opacity: 0.6;
+      margin-top: 1rem;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="spinner"></div>
-    <h2>Completing authorization...</h2>
+    <div class="spinner" id="spinner"></div>
+    <h2 id="title">Completing authorization...</h2>
+    <p id="message">Please wait while we complete the OAuth flow.</p>
+    <div class="status" id="status">Connecting to extension...</div>
+    <div class="debug" id="debug"></div>
   </div>
-  <script src="oauth.js"></script>
+  
+  <script>
+    // Debug logging
+    function log(message, data = null) {
+      console.log(`[Figtree OAuth] ${message}`, data || '');
+      const debugEl = document.getElementById('debug');
+      debugEl.innerHTML += `${new Date().toLocaleTimeString()}: ${message}<br>`;
+    }
+
+    // Update UI
+    function updateUI(title, message, status, isError = false, isSuccess = false) {
+      document.getElementById('title').textContent = title;
+      document.getElementById('message').textContent = message;
+      document.getElementById('status').textContent = status;
+      document.getElementById('status').className = `status ${isError ? 'error' : isSuccess ? 'success' : ''}`;
+      
+      if (isError || isSuccess) {
+        document.getElementById('spinner').style.display = 'none';
+      }
+    }
+
+    // Handle OAuth response from external URL
+    async function handleExternalOAuthResponse() {
+      log('External OAuth handler loaded');
+      
+      // Get the authorization code from the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const error = urlParams.get('error');
+      const errorDescription = urlParams.get('error_description');
+
+      log('OAuth parameters received', { 
+        code: code ? 'present' : 'missing', 
+        state: state ? 'present' : 'missing', 
+        error 
+      });
+
+      if (error) {
+        log('OAuth error received', { error, errorDescription });
+        updateUI(
+          'Authorization Error',
+          errorDescription || error,
+          'Please close this window and try again.',
+          true
+        );
+        
+        // Show close button after error
+        setTimeout(() => {
+          const container = document.querySelector('.container');
+          container.innerHTML += '<button onclick="window.close()">Close Window</button>';
+        }, 1000);
+        return;
+      }
+
+      if (!code || !state) {
+        log('Missing OAuth parameters');
+        updateUI(
+          'Missing Parameters',
+          'Authorization code or state parameter is missing.',
+          'Please close this window and try again.',
+          true
+        );
+        return;
+      }
+
+      // Prepare message for extension
+      const message = {
+        type: 'FIGTREE_OAUTH_RESPONSE',
+        code: code,
+        state: state,
+        source: 'external',
+        timestamp: Date.now()
+      };
+
+      log('Prepared message for extension', { state, codeLength: code.length });
+
+      // Method 1: Store in localStorage for extension polling
+      try {
+        localStorage.setItem('figtree_oauth_response', JSON.stringify(message));
+        log('Stored OAuth response in localStorage');
+        updateUI(
+          'Authorization Successful!',
+          'Connecting to extension...',
+          'Waiting for extension to receive the authorization...'
+        );
+      } catch (e) {
+        log('Failed to store in localStorage', e);
+        updateUI(
+          'Storage Error',
+          'Failed to store authorization data.',
+          'Please close this window and try again.',
+          true
+        );
+        return;
+      }
+
+      // Method 2: Try postMessage to opener (if opened from extension)
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(message, '*');
+          log('Sent postMessage to opener window');
+        } catch (e) {
+          log('Failed to send postMessage to opener', e);
+        }
+      }
+
+      // Check if extension picked up the response
+      let checkCount = 0;
+      const maxChecks = 30; // 30 seconds
+      
+      const checkInterval = setInterval(() => {
+        checkCount++;
+        
+        try {
+          const stored = localStorage.getItem('figtree_oauth_response');
+          if (!stored) {
+            // Extension consumed the response
+            log('Extension picked up OAuth response');
+            clearInterval(checkInterval);
+            updateUI(
+              'Success!',
+              'Authorization completed successfully.',
+              'You can now close this window and return to the extension.',
+              false,
+              true
+            );
+            
+            // Show close button
+            setTimeout(() => {
+              const container = document.querySelector('.container');
+              container.innerHTML += '<button onclick="window.close()">Close Window</button>';
+            }, 1000);
+
+            // Auto-close after delay
+            setTimeout(() => {
+              window.close();
+            }, 5000);
+            return;
+          }
+        } catch (e) {
+          log('Error checking localStorage', e);
+        }
+        
+        // Update status
+        updateUI(
+          'Authorization Successful!',
+          'Waiting for extension to connect...',
+          `Attempting connection... (${checkCount}/${maxChecks})`
+        );
+        
+        // Timeout after 30 seconds
+        if (checkCount >= maxChecks) {
+          clearInterval(checkInterval);
+          log('Timeout waiting for extension');
+          updateUI(
+            'Connection Timeout',
+            'The extension did not pick up the authorization.',
+            'Please close this window and try clicking the extension icon again.',
+            true
+          );
+          
+          // Show close button
+          setTimeout(() => {
+            const container = document.querySelector('.container');
+            container.innerHTML += '<button onclick="window.close()">Close Window</button>';
+          }, 1000);
+        }
+      }, 1000);
+    }
+
+    // Execute when page loads
+    document.addEventListener('DOMContentLoaded', handleExternalOAuthResponse);
+  </script>
 </body>
-</html> 
+</html>
