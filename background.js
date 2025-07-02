@@ -73,7 +73,7 @@ async function exchangeCodeForToken(code) {
       debugLog('Using external token exchange service');
       
       // Make request to your server that handles the token exchange
-      const response = await fetch('https://www.getfigtree.com/api/oauth/token', {
+      const response = await fetch('https://www.getfigtree.com/server/api/oauth/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

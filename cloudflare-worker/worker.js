@@ -16,7 +16,7 @@ export default {
 
     // Only handle POST requests to /api/oauth/token
     const url = new URL(request.url);
-    if (request.method !== 'POST' || url.pathname !== '/api/oauth/token') {
+    if (request.method !== 'POST' || url.pathname !== 'server/api/oauth/token') {
       return new Response('Not Found', { status: 404 });
     }
 
