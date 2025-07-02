@@ -300,11 +300,16 @@ async function startOAuthFlow() {
     
     if (USE_EXTERNAL_REDIRECT) {
       debugLog('Setting up external OAuth polling');
-      startExternalOAuthPolling(state);
+      
+      // Open the OAuth URL in a new tab and track it
+      const oauthTab = await chrome.tabs.create({ url: authUrl });
+      debugLog('Created OAuth tab:', oauthTab.id);
+      
+      startExternalOAuthPolling(state, oauthTab.id);
+    } else {
+      // Open the OAuth URL in a new tab
+      chrome.tabs.create({ url: authUrl });
     }
-    
-    // Open the OAuth URL in a new tab
-    chrome.tabs.create({ url: authUrl });
   } catch (error) {
     debugLog('Error starting OAuth flow:', error);
     throw error;
@@ -314,50 +319,150 @@ async function startOAuthFlow() {
 // Poll for external OAuth responses
 let oauthPollingInterval = null;
 
-function startExternalOAuthPolling(expectedState) {
+function startExternalOAuthPolling(expectedState, oauthTabId = null) {
   debugLog('Starting external OAuth polling for state:', expectedState);
+  debugLog('Tracking OAuth tab ID:', oauthTabId);
   
   // Clear any existing polling
   if (oauthPollingInterval) {
     clearInterval(oauthPollingInterval);
   }
   
+  // Listen for tab updates to detect when OAuth tab redirects to getfigtree.com
+  const tabUpdateListener = (tabId, changeInfo, tab) => {
+    if (tabId === oauthTabId && changeInfo.url) {
+      debugLog('OAuth tab URL changed to:', changeInfo.url);
+      
+      // If the tab has reached getfigtree.com, try to immediately check for OAuth response
+      if (changeInfo.url.includes('getfigtree.com/oauth.html')) {
+        debugLog('OAuth tab reached final destination, checking for response immediately');
+        
+        // Wait a moment for the page to load and scripts to run
+        setTimeout(async () => {
+          try {
+            await checkTabForOAuthResponse(tabId, expectedState);
+          } catch (error) {
+            debugLog('Error in immediate OAuth check:', error);
+          }
+        }, 1000);
+      }
+    }
+  };
+  
+  chrome.tabs.onUpdated.addListener(tabUpdateListener);
+  
+  // Helper function to check a specific tab for OAuth response
+  const checkTabForOAuthResponse = async (tabId, expectedState) => {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      debugLog(`Checking tab ${tabId} (${tab.url}) for OAuth response`);
+      
+      const result = await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: () => {
+          try {
+            const stored = localStorage.getItem('figtree_oauth_response');
+            console.log('[OAuth Polling] Checking localStorage:', stored ? 'found' : 'not found');
+            if (stored) {
+              localStorage.removeItem('figtree_oauth_response');
+              return JSON.parse(stored);
+            }
+            return null;
+          } catch (e) {
+            console.error('[OAuth Polling] Error accessing localStorage:', e);
+            return null;
+          }
+        }
+      });
+      
+      if (result && result[0] && result[0].result) {
+        const oauthResponse = result[0].result;
+        debugLog('Found external OAuth response:', oauthResponse);
+        
+        if (oauthResponse.state === expectedState) {
+          clearInterval(oauthPollingInterval);
+          oauthPollingInterval = null;
+          cleanupPolling();
+          
+          debugLog('State matches, processing OAuth response');
+          await handleOAuthResponse(oauthResponse.code, oauthResponse.state);
+          return true;
+        } else {
+          debugLog('State mismatch:', { expected: expectedState, received: oauthResponse.state });
+        }
+      }
+      return false;
+    } catch (error) {
+      debugLog('Error checking tab for OAuth response:', error.message);
+      return false;
+    }
+  };
+  
+  // Clean up listener when polling stops
+  const cleanupPolling = () => {
+    chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+    debugLog('Cleaned up OAuth tab listener');
+  };
+  
   // Poll for OAuth response in a content script
   oauthPollingInterval = setInterval(async () => {
     try {
-      // Inject a content script to check localStorage on getfigtree.com
-      const tabs = await chrome.tabs.query({ url: 'https://www.getfigtree.com/*' });
+      let tabsToCheck = [];
       
-      for (const tab of tabs) {
+      // If we have a specific OAuth tab ID, check it first
+      if (oauthTabId) {
         try {
-          const result = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: () => {
-              const stored = localStorage.getItem('figtree_oauth_response');
-              if (stored) {
-                localStorage.removeItem('figtree_oauth_response');
-                return JSON.parse(stored);
-              }
-              return null;
-            }
-          });
-          
-          if (result && result[0] && result[0].result) {
-            const oauthResponse = result[0].result;
-            debugLog('Found external OAuth response:', oauthResponse);
-            
-            if (oauthResponse.state === expectedState) {
-              clearInterval(oauthPollingInterval);
-              oauthPollingInterval = null;
-              
-              // Process the OAuth response
-              await handleOAuthResponse(oauthResponse.code, oauthResponse.state);
-              return;
-            }
+          const oauthTab = await chrome.tabs.get(oauthTabId);
+          if (oauthTab && oauthTab.url) {
+            debugLog('Checking specific OAuth tab:', oauthTab.url);
+            tabsToCheck.push(oauthTab);
+          } else {
+            debugLog('OAuth tab not found or has no URL');
+          }
+        } catch (e) {
+          debugLog('Error getting OAuth tab:', e.message);
+          // Tab might have been closed, continue with general search
+        }
+      }
+      
+      // Also search for getfigtree.com tabs as fallback
+      const urlPatterns = [
+        'https://www.getfigtree.com/*',
+        'https://getfigtree.com/*',
+        '*://www.getfigtree.com/*',
+        '*://getfigtree.com/*'
+      ];
+      
+      for (const pattern of urlPatterns) {
+        try {
+          const tabs = await chrome.tabs.query({ url: pattern });
+          tabsToCheck = tabsToCheck.concat(tabs);
+        } catch (e) {
+          // Some patterns might not work, continue with others
+        }
+      }
+      
+      // Remove duplicates by tab ID
+      const uniqueTabs = tabsToCheck.filter((tab, index, self) => 
+        index === self.findIndex(t => t.id === tab.id)
+      );
+      
+      if (uniqueTabs.length === 0) {
+        debugLog('No tabs found for OAuth polling');
+        return;
+      }
+      
+      debugLog(`Found ${uniqueTabs.length} tabs to check for OAuth response`);
+      
+      for (const tab of uniqueTabs) {
+        try {
+          const success = await checkTabForOAuthResponse(tab.id, expectedState);
+          if (success) {
+            return; // OAuth response processed successfully
           }
         } catch (error) {
-          // Ignore errors for individual tabs
-          debugLog('Error checking tab for OAuth response:', error);
+          // Ignore errors for individual tabs (might be permission issues)
+          debugLog('Error checking tab for OAuth response:', error.message);
         }
       }
     } catch (error) {
@@ -370,7 +475,8 @@ function startExternalOAuthPolling(expectedState) {
     if (oauthPollingInterval) {
       clearInterval(oauthPollingInterval);
       oauthPollingInterval = null;
-      debugLog('OAuth polling timeout');
+      cleanupPolling();
+      debugLog('OAuth polling timeout - stopped after 5 minutes');
     }
   }, 300000);
 }

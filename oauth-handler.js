@@ -97,6 +97,7 @@ async function handleExternalOAuthResponse() {
   try {
     localStorage.setItem('figtree_oauth_response', JSON.stringify(message));
     log('Stored OAuth response in localStorage');
+    log('localStorage contents:', localStorage.getItem('figtree_oauth_response'));
     updateUI(
       'Authorization Successful!',
       'Connecting to extension...',
@@ -122,6 +123,23 @@ async function handleExternalOAuthResponse() {
       log('Failed to send postMessage to opener', e);
     }
   }
+
+  // Method 3: Try broadcasting to extension via custom event
+  try {
+    window.dispatchEvent(new CustomEvent('figtree-oauth-response', {
+      detail: message
+    }));
+    log('Dispatched custom event for extension');
+  } catch (e) {
+    log('Failed to dispatch custom event', e);
+  }
+
+  // Method 4: Manual notification for debugging
+  log('OAuth response stored. Extension should be polling this tab for the response.');
+  log('If the extension is not picking this up, check:');
+  log('1. Extension has permission for getfigtree.com domain');
+  log('2. Extension background script is running and polling');
+  log('3. This tab URL matches the polling pattern');
 
   // Check if extension picked up the response
   let checkCount = 0;
