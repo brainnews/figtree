@@ -38,21 +38,17 @@ function getRedirectUrl() {
   const extensionId = chrome.runtime.id;
   debugLog('Current extension ID:', extensionId);
   
-  // Check if we have development configuration
-  if (typeof DEV_CONFIG !== 'undefined' && !IS_PRODUCTION) {
-    if (DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
-      debugLog('Using external redirect URL for development');
-      return DEV_CONFIG.EXTERNAL_REDIRECT_URL;
-    }
-    
-    if (DEV_CONFIG.USE_FIXED_EXTENSION_ID && DEV_CONFIG.FIXED_EXTENSION_ID !== 'your-fixed-extension-id-here') {
-      const redirectUrl = `chrome-extension://${DEV_CONFIG.FIXED_EXTENSION_ID}/oauth.html`;
-      debugLog('Using fixed extension ID for development:', redirectUrl);
-      return redirectUrl;
-    }
+  // For development, use external redirect (hardcoded for now)
+  // TODO: Make this configurable based on environment
+  const USE_EXTERNAL_REDIRECT = true; // Set to false for production
+  const EXTERNAL_REDIRECT_URL = 'https://www.getfigtree.com/oauth.html';
+  
+  if (USE_EXTERNAL_REDIRECT) {
+    debugLog('Using external redirect URL for development');
+    return EXTERNAL_REDIRECT_URL;
   }
   
-  // Default: use current extension ID
+  // Default: use current extension ID (for production)
   const redirectUrl = `chrome-extension://${extensionId}/oauth.html`;
   debugLog('Using current extension ID redirect URL:', redirectUrl);
   
@@ -71,7 +67,9 @@ async function exchangeCodeForToken(code) {
     
     // For external OAuth, we need to use a proxy service because
     // Figma requires client_secret which can't be stored in extensions
-    if (typeof DEV_CONFIG !== 'undefined' && DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
+    const USE_EXTERNAL_REDIRECT = true; // Should match getRedirectUrl()
+    
+    if (USE_EXTERNAL_REDIRECT) {
       debugLog('Using external token exchange service');
       
       // Make request to your server that handles the token exchange
@@ -298,7 +296,9 @@ async function startOAuthFlow() {
     debugLog('Opening OAuth URL:', authUrl);
     
     // If using external redirect, we need to set up polling for the response
-    if (typeof DEV_CONFIG !== 'undefined' && DEV_CONFIG.USE_EXTERNAL_REDIRECT) {
+    const USE_EXTERNAL_REDIRECT = true; // Should match getRedirectUrl()
+    
+    if (USE_EXTERNAL_REDIRECT) {
       debugLog('Setting up external OAuth polling');
       startExternalOAuthPolling(state);
     }
