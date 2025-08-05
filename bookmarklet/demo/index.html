@@ -200,7 +200,7 @@
             </div>
             
             <div class="bookmarklet-container">
-                <a href="javascript:(function(){if(window.FigtreeApp)return window.FigtreeApp.toggle();if(window.FigtreeLoading)return;window.FigtreeLoading=true;const loading=document.createElement('div');loading.innerHTML='<div style=\"position:fixed;top:20px;right:20px;background:#2c2c2c;color:white;padding:12px 16px;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14px;z-index:999999;display:flex;align-items:center;gap:8px;\"><div style=\"width:16px;height:16px;border:2px solid #666;border-top:2px solid #0D99FF;border-radius:50%;animation:spin 1s linear infinite;\"></div>Loading Figtree...</div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>';document.body.appendChild(loading);const script=document.createElement('script');script.src='http://localhost:3000/figtree-app.js';script.onload=()=>{loading.remove();window.FigtreeLoading=false;window.FigtreeApp&&window.FigtreeApp.init()};script.onerror=()=>{loading.remove();window.FigtreeLoading=false;alert('Failed to load Figtree')};document.head.appendChild(script)})();" class="bookmarklet">
+                <a href="javascript:(function()%20%7B%20if%20(window.FigtreeApp)%20return%20window.FigtreeApp.toggle()%3B%20if%20(window.FigtreeLoading)%20return%3B%20window.FigtreeLoading%20%3D%20true%3B%20var%20loading%20%3D%20document.createElement('div')%3B%20loading.id%20%3D%20'figtree-loading'%3B%20loading.style.cssText%20%3D%20'position%3Afixed%3Btop%3A20px%3Bright%3A20px%3Bbackground%3A%232c2c2c%3Bcolor%3Awhite%3Bpadding%3A12px%2016px%3Bborder-radius%3A8px%3Bfont-family%3A-apple-system%2CBlinkMacSystemFont%2Csans-serif%3Bfont-size%3A14px%3Bz-index%3A999999%3Bbox-shadow%3A0%204px%2012px%20rgba(0%2C0%2C0%2C0.3)'%3B%20loading.innerHTML%20%3D%20'%F0%9F%8C%B3%20Loading%20Figtree...'%3B%20document.body.appendChild(loading)%3B%20var%20script%20%3D%20document.createElement('script')%3B%20script.src%20%3D%20'http%3A%2F%2Flocalhost%3A3000%2Ffigtree-app.min.js'%3B%20script.onload%20%3D%20function()%20%7B%20loading.remove()%3B%20window.FigtreeLoading%20%3D%20false%3B%20if%20(window.FigtreeApp)%20window.FigtreeApp.init()%3B%20%7D%3B%20script.onerror%20%3D%20function()%20%7B%20loading.remove()%3B%20window.FigtreeLoading%20%3D%20false%3B%20alert('Failed%20to%20load%20Figtree')%3B%20%7D%3B%20document.head.appendChild(script)%3B%20%7D)()%3B" class="bookmarklet">
                     🌳 Figtree
                 </a>
             </div>
@@ -260,13 +260,10 @@
             <p>This bookmarklet is built from the Figtree Chrome extension, adapted for universal browser compatibility.</p>
             
             <div class="code">
-// Bookmarklet source (minified)
-javascript:(function(){
-  if(window.FigtreeApp) return window.FigtreeApp.toggle();
-  // ... loading logic
-  script.src='https://your-domain.com/figtree-app.js';
-  // ... initialization
-})();
+// Bookmarklet source (URL-encoded for safety)
+javascript:(function()%20%7B%20if%20(window.FigtreeApp)...
+// When decoded, loads the Figtree app from CDN/localhost
+// and initializes the UI after successful loading
             </div>
         </div>
         
@@ -304,6 +301,28 @@ javascript:(function(){
         window.addEventListener('message', (event) => {
             if (event.data.type === 'FIGTREE_STATUS') {
                 console.log('Figtree status:', event.data);
+            }
+        });
+        
+        // Listen for when the bookmarklet button is clicked
+        document.addEventListener('click', (event) => {
+            if (event.target.matches('.bookmarklet')) {
+                const statusEl = document.getElementById('status-text');
+                statusEl.textContent = '🚀 Bookmarklet clicked! Loading Figtree...';
+                document.getElementById('status').style.background = '#fff3cd';
+                
+                // Set timeout to check if Figtree loaded
+                setTimeout(() => {
+                    if (window.FigtreeApp) {
+                        statusEl.textContent = '✅ Figtree loaded successfully!';
+                        document.getElementById('status').style.background = '#d4edda';
+                    } else if (window.FigtreeLoading) {
+                        statusEl.textContent = '⏳ Still loading Figtree...';
+                    } else {
+                        statusEl.textContent = '❌ Figtree failed to load. Check console for errors.';
+                        document.getElementById('status').style.background = '#f8d7da';
+                    }
+                }, 2000);
             }
         });
     </script>

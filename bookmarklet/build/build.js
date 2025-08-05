@@ -146,7 +146,11 @@ function buildCombinedFile() {
   
   // Generate bookmarklet
   console.log('\n🔗 Generating bookmarklet...');
-  generateBookmarklet(loaderContent);
+  const devBookmarklet = generateBookmarklet(loaderContent);
+  
+  // Update demo page with new bookmarklet
+  console.log('\n📄 Updating demo page...');
+  updateDemoPage(devBookmarklet);
   
   // Show file sizes
   console.log('\n📊 Build results:');
@@ -158,34 +162,77 @@ function buildCombinedFile() {
 }
 
 function generateBookmarklet(loaderContent) {
-  // Extract the main function from loader and minify it
-  const functionMatch = loaderContent.match(/\(function\(\)\s*{([\s\S]*?)}\)\(\);?$/);
-  
-  if (!functionMatch) {
-    console.error('❌ Could not extract function from loader');
-    return;
-  }
-  
-  const functionBody = functionMatch[1];
-  
-  // Create bookmarklet with updated CDN URL (for production)
-  const bookmarklet = `javascript:(function(){${minifyJs(functionBody)}})();`;
-  
-  // Create bookmarklet for development (localhost)
-  const devBookmarklet = bookmarklet.replace(
-    'https://cdn.jsdelivr.net/gh/yourusername/figtree@bookmarklet/bookmarklet/dist/',
-    'http://localhost:3000/'
-  );
+  // Create a simplified bookmarklet instead of parsing the complex loader
+  const productionBookmarklet = createSimpleBookmarklet('https://cdn.jsdelivr.net/gh/yourusername/figtree@bookmarklet/bookmarklet/dist/');
+  const devBookmarklet = createSimpleBookmarklet('http://localhost:3000/');
   
   // Write bookmarklets
   const bookmarkletPath = path.join(config.distDir, 'bookmarklet.js');
   const devBookmarkletPath = path.join(config.distDir, 'bookmarklet-dev.js');
   
-  writeFile(bookmarkletPath, bookmarklet);
+  writeFile(bookmarkletPath, productionBookmarklet);
   writeFile(devBookmarkletPath, devBookmarklet);
   
   console.log('  • Generated production bookmarklet');
   console.log('  • Generated development bookmarklet');
+  
+  return devBookmarklet;
+}
+
+function createSimpleBookmarklet(baseUrl) {
+  // Create a much simpler bookmarklet that avoids HTML/CSS issues
+  const code = `
+    (function() {
+      if (window.FigtreeApp) return window.FigtreeApp.toggle();
+      if (window.FigtreeLoading) return;
+      window.FigtreeLoading = true;
+      
+      var loading = document.createElement('div');
+      loading.id = 'figtree-loading';
+      loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2c2c2c;color:white;padding:12px 16px;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+      loading.innerHTML = '🌳 Loading Figtree...';
+      document.body.appendChild(loading);
+      
+      var script = document.createElement('script');
+      script.src = '${baseUrl}figtree-app.min.js';
+      script.onload = function() {
+        loading.remove();
+        window.FigtreeLoading = false;
+        if (window.FigtreeApp) window.FigtreeApp.init();
+      };
+      script.onerror = function() {
+        loading.remove();
+        window.FigtreeLoading = false;
+        alert('Failed to load Figtree');
+      };
+      document.head.appendChild(script);
+    })();
+  `.replace(/\s+/g, ' ').trim();
+  
+  return 'javascript:' + encodeURIComponent(code);
+}
+
+function updateDemoPage(devBookmarklet) {
+  const demoPath = path.join(__dirname, '../demo/index.html');
+  let demoContent = readFile(demoPath);
+  
+  if (!demoContent) {
+    console.error('❌ Could not read demo page');
+    return;
+  }
+  
+  // Replace the bookmarklet href with the new one
+  const bookmarkletRegex = /href="javascript:[^"]*"/;
+  const newHref = `href="${devBookmarklet}"`;
+  
+  const updatedContent = demoContent.replace(bookmarkletRegex, newHref);
+  
+  if (updatedContent === demoContent) {
+    console.log('  • Demo page already up to date');
+  } else {
+    writeFile(demoPath, updatedContent);
+    console.log('  • Updated demo page with new bookmarklet');
+  }
 }
 
 function getFileSize(filePath) {
