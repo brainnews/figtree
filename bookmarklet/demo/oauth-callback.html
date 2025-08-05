@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figtree OAuth Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin: 0 0 16px 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 16px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+        }
+        
+        .status.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e3f2fd;
+            border-top: 2px solid #1976d2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .close-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #5a67d8;
+        }
+        
+        .details {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: left;
+        }
+        
+        .details h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .details pre {
+            margin: 0;
+            padding: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🌳</div>
+        <h1>Figtree Authentication</h1>
+        
+        <div id="status" class="status loading">
+            <div class="spinner"></div>
+            Processing authentication...
+        </div>
+        
+        <div id="details" class="details" style="display: none;">
+            <h3>Debug Information:</h3>
+            <pre id="debug-info"></pre>
+        </div>
+        
+        <button id="close-btn" class="close-btn" style="display: none;" onclick="window.close()">
+            Close Window
+        </button>
+    </div>
+    
+    <script>
+        function log(message, data = null) {
+            console.log(`[Figtree OAuth] ${message}`, data || '');
+            
+            // Update debug info
+            const debugEl = document.getElementById('debug-info');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.textContent += `${timestamp}: ${message}\n`;
+            if (data) {
+                debugEl.textContent += `  Data: ${JSON.stringify(data, null, 2)}\n`;
+            }
+        }
+        
+        function updateStatus(message, type = 'loading', showClose = false) {
+            const statusEl = document.getElementById('status');
+            const closeBtnEl = document.getElementById('close-btn');
+            const detailsEl = document.getElementById('details');
+            
+            statusEl.className = `status ${type}`;
+            statusEl.innerHTML = type === 'loading' ? 
+                `<div class="spinner"></div>${message}` : 
+                message;
+            
+            if (showClose) {
+                closeBtnEl.style.display = 'inline-block';
+            }
+            
+            if (type === 'error') {
+                detailsEl.style.display = 'block';
+            }
+        }
+        
+        function handleOAuthCallback() {
+            log('OAuth callback handler starting');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
+            
+            log('URL parameters', { 
+                hasCode: !!code, 
+                hasState: !!state, 
+                error, 
+                errorDescription 
+            });
+            
+            // Check for OAuth errors
+            if (error) {
+                log('OAuth error received', { error, errorDescription });
+                updateStatus(
+                    `❌ Authentication Error: ${errorDescription || error}`,
+                    'error',
+                    true
+                );
+                return;
+            }
+            
+            if (!code || !state) {
+                log('Missing required OAuth parameters');
+                updateStatus(
+                    '❌ Missing authentication parameters',
+                    'error',
+                    true
+                );
+                return;
+            }
+            
+            log('Valid OAuth parameters received, sending to parent window');
+            updateStatus('✅ Authentication successful! Communicating with Figtree...');
+            
+            try {
+                // Send success message to parent window
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'FIGTREE_OAUTH_SUCCESS',
+                        code: code,
+                        state: state
+                    }, '*');
+                    
+                    log('Success message sent to parent window');
+                    updateStatus('✅ Authentication completed! You can close this window.', 'success', true);
+                    
+                    // Auto-close after 3 seconds
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                    
+                } else {
+                    log('No parent window found');
+                    updateStatus('❌ Unable to communicate with parent window', 'error', true);
+                }
+                
+            } catch (error) {
+                log('Error sending message to parent', error);
+                updateStatus(`❌ Communication error: ${error.message}`, 'error', true);
+            }
+        }
+        
+        // Handle the OAuth callback when page loads
+        document.addEventListener('DOMContentLoaded', handleOAuthCallback);
+        
+        // Also handle cases where DOMContentLoaded already fired
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', handleOAuthCallback);
+        } else {
+            handleOAuthCallback();
+        }
+        
+        // Listen for messages from parent (just for debugging)
+        window.addEventListener('message', (event) => {
+            log('Received message from parent', event.data);
+        });
+        
+        // Handle window close
+        window.addEventListener('beforeunload', () => {
+            log('Window closing');
+            if (window.opener) {
+                try {
+                    window.opener.postMessage({
+                        type: 'FIGTREE_OAUTH_CANCELLED'
+                    }, '*');
+                } catch (error) {
+                    log('Error sending cancellation message', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

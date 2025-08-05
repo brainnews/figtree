@@ -44,17 +44,44 @@ function addCloseButton() {
 async function handleExternalOAuthResponse() {
   log('External OAuth handler loaded');
   
-  // Get the authorization code from the URL
+  // Get OAuth response from URL (check both query params and hash for different flow types)
   const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  const error = urlParams.get('error');
-  const errorDescription = urlParams.get('error_description');
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  
+  // Authorization code flow (query params)
+  let code = urlParams.get('code');
+  let state = urlParams.get('state') || hashParams.get('state');
+  const error = urlParams.get('error') || hashParams.get('error');
+  const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+  
+  // Implicit flow (hash params)
+  let accessToken = hashParams.get('access_token');
+  const tokenType = hashParams.get('token_type');
+  
+  // Handle Figma's custom OAuth response format in hash
+  // Format: #figu_<token>:<state>
+  const hash = window.location.hash.substring(1);
+  if (hash.startsWith('figu_') && hash.includes(':')) {
+    log('Detected Figma custom OAuth format');
+    const parts = hash.split(':');
+    if (parts.length >= 2) {
+      accessToken = parts[0]; // The full figu_... token
+      state = parts[1]; // The state after the colon
+      log('Parsed Figma OAuth response', { 
+        tokenPrefix: accessToken.substring(0, 10) + '...', 
+        state: state 
+      });
+    }
+  }
 
   log('OAuth parameters received', { 
-    code: code ? 'present' : 'missing', 
+    code: code ? 'present' : 'missing',
+    accessToken: accessToken ? 'present' : 'missing',
     state: state ? 'present' : 'missing', 
-    error 
+    error,
+    fullUrl: window.location.href,
+    hash: window.location.hash,
+    search: window.location.search
   });
 
   if (error) {
@@ -71,11 +98,20 @@ async function handleExternalOAuthResponse() {
     return;
   }
 
-  if (!code || !state) {
-    log('Missing OAuth parameters');
+  if ((!code && !accessToken) || !state) {
+    log('Missing OAuth parameters - debugging info:', {
+      hasCode: !!code,
+      hasToken: !!accessToken, 
+      hasState: !!state,
+      codeValue: code,
+      tokenValue: accessToken,
+      stateValue: state,
+      hashParams: Object.fromEntries(hashParams),
+      urlParams: Object.fromEntries(urlParams)
+    });
     updateUI(
       'Missing Parameters',
-      'Authorization code or state parameter is missing.',
+      'Authorization code/token or state parameter is missing.',
       'Please close this window and try again.',
       true
     );
@@ -86,12 +122,18 @@ async function handleExternalOAuthResponse() {
   const message = {
     type: 'FIGTREE_OAUTH_RESPONSE',
     code: code,
+    access_token: accessToken,
     state: state,
     source: 'external',
     timestamp: Date.now()
   };
 
-  log('Prepared message for extension', { state, codeLength: code.length });
+  log('Prepared message for extension', { 
+    state, 
+    hasCode: !!code,
+    hasToken: !!accessToken,
+    codeLength: code ? code.length : 0 
+  });
 
   // Method 1: Store in localStorage for extension polling
   try {
