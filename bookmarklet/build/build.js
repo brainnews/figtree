@@ -162,21 +162,25 @@ function buildCombinedFile() {
 }
 
 function generateBookmarklet(loaderContent) {
-  // Create a simplified bookmarklet instead of parsing the complex loader
+  // Create bookmarklets for different environments
   const productionBookmarklet = createSimpleBookmarklet('https://cdn.jsdelivr.net/gh/yourusername/figtree@bookmarklet/bookmarklet/dist/');
   const devBookmarklet = createSimpleBookmarklet('http://localhost:3000/');
+  const liveServerBookmarklet = createSimpleBookmarklet('http://127.0.0.1:5500/bookmarklet/dist/');
   
   // Write bookmarklets
   const bookmarkletPath = path.join(config.distDir, 'bookmarklet.js');
   const devBookmarkletPath = path.join(config.distDir, 'bookmarklet-dev.js');
+  const liveServerBookmarkletPath = path.join(config.distDir, 'bookmarklet-liveserver.js');
   
   writeFile(bookmarkletPath, productionBookmarklet);
   writeFile(devBookmarkletPath, devBookmarklet);
+  writeFile(liveServerBookmarkletPath, liveServerBookmarklet);
   
   console.log('  • Generated production bookmarklet');
-  console.log('  • Generated development bookmarklet');
+  console.log('  • Generated development bookmarklet (localhost:3000)');
+  console.log('  • Generated Live Server bookmarklet (127.0.0.1:5500)');
   
-  return devBookmarklet;
+  return liveServerBookmarklet; // Return Live Server version for demo page
 }
 
 function createSimpleBookmarklet(baseUrl) {

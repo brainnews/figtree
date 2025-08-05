@@ -2,7 +2,7 @@
  * Figtree Bookmarklet v2.0.0-bookmarklet
  * Quick access to your Figma projects from any webpage
  * 
- * Built: 2025-08-05T02:29:46.113Z
+ * Built: 2025-08-05T02:33:49.186Z
  * Source: https://github.com/your-username/figtree
  */
 
