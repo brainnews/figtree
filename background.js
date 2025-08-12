@@ -33,17 +33,11 @@ function base64URLEncode(array) {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-// Get the extension's redirect URL
-function getRedirectUrl() {
-  const extensionId = chrome.runtime.id;
-  debugLog('Current extension ID:', extensionId);
-  
-  // Use external redirect for production compatibility
-  // Extension-local redirect won't work because each user has different extension ID
-  const redirectUrl = 'https://www.getfigtree.com/oauth.html';
-  debugLog('Using external redirect URL for production:', redirectUrl);
-  
-  return redirectUrl;
+// Get the website auth URL
+function getWebsiteAuthUrl() {
+  const websiteAuthUrl = 'https://www.getfigtree.com/website-auth.html';
+  debugLog('Using production auth URL:', websiteAuthUrl);
+  return websiteAuthUrl;
 }
 
 // Exchange authorization code for access token
@@ -51,7 +45,8 @@ async function exchangeCodeForToken(code) {
   debugLog('Exchanging code for token');
   try {
     const clientId = chrome.runtime.getManifest().oauth2.client_id;
-    const redirectUri = getRedirectUrl();
+    // Use the same redirect URI as the website auth page
+    const redirectUri = 'https://www.getfigtree.com/website-auth.html';
     
     debugLog('Using client ID:', clientId);
     debugLog('Using redirect URI:', redirectUri);
@@ -267,288 +262,172 @@ async function verifyToken(token) {
   }
 }
 
-// Start OAuth flow
-async function startOAuthFlow() {
-  debugLog('Starting OAuth flow');
+// Start website-based OAuth flow
+async function startWebsiteAuthFlow() {
+  debugLog('Starting website-based OAuth flow');
   try {
-    const clientId = chrome.runtime.getManifest().oauth2.client_id;
-    const scopes = chrome.runtime.getManifest().oauth2.scopes.join(' ');
     const state = generateState();
     
-    debugLog('Generated OAuth parameters:', {
-      clientId,
-      scopes,
-      state
-    });
+    debugLog('Generated OAuth state:', state);
     
     // Store the state for verification
     await chrome.storage.local.set({ 
-      oauth_state: state
+      oauth_state: state,
+      oauth_timestamp: Date.now()
     });
-    debugLog('Stored OAuth state');
+    debugLog('Stored OAuth state and timestamp');
     
-    const redirectUri = getRedirectUrl();
-    debugLog('Using redirect URI:', redirectUri);
+    // Open website auth page with state parameter
+    const websiteAuthUrl = getWebsiteAuthUrl();
+    const authUrl = `${websiteAuthUrl}?extension_state=${state}`;
     
-    // Build OAuth URL using implicit flow (response_type=implicit) to avoid client_secret requirement
-    const authUrl = `${FIGMA_OAUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=implicit&state=${state}`;
+    debugLog('Opening website auth URL:', authUrl);
     
-    debugLog('Opening OAuth URL:', authUrl);
+    // Open the website auth URL in a new tab
+    const authTab = await chrome.tabs.create({ url: authUrl });
+    debugLog('Created auth tab:', authTab.id);
     
-    // Open the OAuth URL in a new tab and set up polling for external redirect
-    const oauthTab = await chrome.tabs.create({ url: authUrl });
-    debugLog('Created OAuth tab:', oauthTab.id);
-    
-    // Start improved polling mechanism
-    startImprovedOAuthPolling(state, oauthTab.id);
+    // Start polling for completed authentication
+    startWebsiteAuthPolling(state, authTab.id);
   } catch (error) {
-    debugLog('Error starting OAuth flow:', error);
+    debugLog('Error starting website auth flow:', error);
     throw error;
   }
 }
 
-// Improved OAuth polling for external redirect
-let oauthPollingInterval = null;
-let oauthTabListener = null;
+// Website-based auth polling
+let websiteAuthPollingInterval = null;
+let websiteAuthTabListener = null;
 
-function startImprovedOAuthPolling(expectedState, oauthTabId) {
-  debugLog('Starting improved OAuth polling for state:', expectedState);
-  debugLog('Tracking OAuth tab ID:', oauthTabId);
+function startWebsiteAuthPolling(expectedState, authTabId) {
+  debugLog('Starting website auth polling for state:', expectedState);
+  debugLog('Tracking auth tab ID:', authTabId);
   
   // Clear any existing polling
-  if (oauthPollingInterval) {
-    clearInterval(oauthPollingInterval);
-    oauthPollingInterval = null;
+  if (websiteAuthPollingInterval) {
+    clearInterval(websiteAuthPollingInterval);
+    websiteAuthPollingInterval = null;
   }
 
   // Remove any existing tab listener
-  if (oauthTabListener) {
-    chrome.tabs.onUpdated.removeListener(oauthTabListener);
-    oauthTabListener = null;
+  if (websiteAuthTabListener) {
+    chrome.tabs.onUpdated.removeListener(websiteAuthTabListener);
+    websiteAuthTabListener = null;
   }
 
-  // Listen for tab updates to detect successful OAuth redirect
-  oauthTabListener = (tabId, changeInfo, tab) => {
-    if (tabId === oauthTabId && changeInfo.url) {
-      debugLog('OAuth tab URL changed to:', changeInfo.url);
-      
-      // Check if we've reached the OAuth callback page
-      if (changeInfo.url.includes('getfigtree.com/oauth.html') && (changeInfo.url.includes('access_token=') || changeInfo.url.includes('code='))) {
-        debugLog('OAuth redirect detected, extracting token from URL');
-        
-        try {
-          const url = new URL(changeInfo.url);
-          
-          // Check for implicit flow token in hash
-          let accessToken = null;
-          let state = null;
-          let error = null;
-          
-          if (url.hash) {
-            const hashParams = new URLSearchParams(url.hash.substring(1));
-            accessToken = hashParams.get('access_token');
-            state = hashParams.get('state');
-            error = hashParams.get('error');
-          }
-          
-          // Fallback to query params for authorization code flow
-          if (!accessToken) {
-            const code = url.searchParams.get('code');
-            state = url.searchParams.get('state');
-            error = url.searchParams.get('error');
-            
-            if (code && state && state === expectedState) {
-              debugLog('Authorization code found, exchanging for token...');
-              cleanupPolling();
-              handleOAuthResponse(code, state);
-              return;
-            }
-          }
-          
-          if (error) {
-            debugLog('OAuth error in URL:', error);
-            cleanupPolling();
-            return;
-          }
-          
-          if (accessToken && state && state === expectedState) {
-            debugLog('Access token found in URL, processing...');
-            cleanupPolling();
-            handleDirectTokenResponse(accessToken, state);
-          } else {
-            debugLog('Invalid OAuth response in URL:', { hasToken: !!accessToken, state, expectedState });
-          }
-        } catch (error) {
-          debugLog('Error parsing OAuth URL:', error);
-        }
-      }
-    }
-  };
-  
-  chrome.tabs.onUpdated.addListener(oauthTabListener);
-  
-  // Fallback: Poll for content script injection method
-  debugLog('Setting up polling interval every 3 seconds');
-  oauthPollingInterval = setInterval(async () => {
+  // Poll the website for authentication completion
+  debugLog('Setting up website auth polling every 2 seconds');
+  websiteAuthPollingInterval = setInterval(async () => {
     try {
-      debugLog(`Polling attempt for tab ${oauthTabId}...`);
-      await checkTabForOAuthResponse(oauthTabId, expectedState);
+      debugLog(`Polling website for auth completion...`);
+      await checkWebsiteForAuthResult(expectedState, authTabId);
     } catch (error) {
-      debugLog('Error during OAuth polling:', error);
+      debugLog('Error during website auth polling:', error);
     }
-  }, 3000); // Poll every 3 seconds
+  }, 2000); // Poll every 2 seconds
   
   // Stop polling after 5 minutes
   setTimeout(() => {
-    if (oauthPollingInterval || oauthTabListener) {
-      debugLog('OAuth polling timeout - stopped after 5 minutes');
-      cleanupPolling();
+    if (websiteAuthPollingInterval) {
+      debugLog('Website auth polling timeout - stopped after 5 minutes');
+      cleanupWebsiteAuthPolling();
     }
   }, 300000);
 }
 
-// Helper function to check tab for OAuth response using content script
-async function checkTabForOAuthResponse(tabId, expectedState) {
+// Check website for authentication result by injecting script
+async function checkWebsiteForAuthResult(expectedState, authTabId) {
   try {
-    const tab = await chrome.tabs.get(tabId);
+    // Check if the auth tab still exists
+    const tab = await chrome.tabs.get(authTabId).catch(() => null);
     if (!tab) {
-      debugLog(`Tab ${tabId} no longer exists`);
+      debugLog(`Auth tab ${authTabId} no longer exists`);
+      cleanupWebsiteAuthPolling();
       return;
     }
     
-    if (!tab.url) {
-      debugLog(`Tab ${tabId} has no URL`);
+    debugLog(`Checking tab for auth result via script injection...`);
+    
+    // Only check if we're on our website
+    if (!tab.url || !tab.url.includes('getfigtree.com')) {
+      debugLog(`Tab URL not on getfigtree.com, skipping: ${tab.url}`);
       return;
     }
     
-    debugLog(`Checking tab ${tabId} with URL: ${tab.url}`);
-    
-    if (!tab.url.includes('getfigtree.com')) {
-      debugLog(`Tab ${tabId} URL does not contain getfigtree.com, skipping`);
-      return;
-    }
-    
-    debugLog(`Injecting script into tab ${tabId} for OAuth response check`);
-    
-    // Try to inject a content script to check for OAuth response
+    // Inject script to check for auth completion
     let results;
     try {
       results = await chrome.scripting.executeScript({
-        target: { tabId: tabId },
+        target: { tabId: authTabId },
         func: () => {
-        try {
-          console.log('[Figtree OAuth Check] Script injected, checking for OAuth response...');
-          
-          // Method 1: Check localStorage
-          const stored = localStorage.getItem('figtree_oauth_response');
-          console.log('[Figtree OAuth Check] localStorage check:', stored ? 'found' : 'not found');
-          if (stored) {
-            const response = JSON.parse(stored);
-            console.log('[Figtree OAuth Check] Parsed localStorage response:', response);
-            // Clear the stored response so it's consumed
-            localStorage.removeItem('figtree_oauth_response');
-            console.log('[Figtree OAuth Check] Removed localStorage entry');
-            return { method: 'localStorage', response };
+          try {
+            // Check sessionStorage for auth result
+            const authResult = sessionStorage.getItem('figtree_auth_result');
+            if (authResult) {
+              const parsed = JSON.parse(authResult);
+              // Clear the result so it's only consumed once
+              sessionStorage.removeItem('figtree_auth_result');
+              return { success: true, data: parsed };
+            }
+            return { success: false, message: 'No auth result found' };
+          } catch (error) {
+            return { success: false, error: error.message };
           }
-          
-          // Method 2: Check URL parameters
-          const urlParams = new URLSearchParams(window.location.search);
-          const code = urlParams.get('code');
-          const state = urlParams.get('state');
-          const error = urlParams.get('error');
-          
-          console.log('[Figtree OAuth Check] URL params check:', { hasCode: !!code, hasState: !!state, error });
-          
-          if (code && state) {
-            return { 
-              method: 'urlParams', 
-              response: { code, state, error }
-            };
-          }
-          
-          // Method 3: Check for custom events
-          const customData = window.figtreeOAuthData;
-          console.log('[Figtree OAuth Check] Custom data check:', customData ? 'found' : 'not found');
-          if (customData) {
-            window.figtreeOAuthData = null;
-            return { method: 'customData', response: customData };
-          }
-          
-          console.log('[Figtree OAuth Check] No OAuth response found');
-          return null;
-        } catch (e) {
-          console.error('[OAuth Check] Error:', e);
-          return { error: e.message };
         }
-      }
-    });
+      });
     } catch (scriptError) {
-      debugLog(`Script injection failed for tab ${tabId}:`, scriptError.message);
+      debugLog(`Script injection failed for tab ${authTabId}:`, scriptError.message);
       return;
     }
-    
-    debugLog(`Script injection result for tab ${tabId}:`, results);
     
     if (results && results[0] && results[0].result) {
       const result = results[0].result;
       
-      if (result.error) {
-        debugLog('Error in content script:', result.error);
-        return;
-      }
-      
-      if (result.response) {
-        const { code, access_token, state, error } = result.response;
-        debugLog(`Found OAuth response via ${result.method}:`, { 
-          hasCode: !!code, 
-          hasToken: !!access_token, 
-          state, 
-          error 
-        });
+      if (result.success && result.data) {
+        const authData = result.data;
+        debugLog('Found auth result from website:', { type: authData.type, hasToken: !!(authData.access_token || authData.code) });
         
-        if (error) {
-          debugLog('OAuth error received:', error);
-          cleanupPolling();
-          return;
+        cleanupWebsiteAuthPolling();
+        
+        // Close the auth tab
+        try {
+          await chrome.tabs.remove(authTabId);
+        } catch (e) {
+          debugLog('Could not close auth tab:', e.message);
         }
         
-        // Handle implicit flow (access_token) or authorization code flow (code)
-        if (access_token && state && state === expectedState) {
-          debugLog('Valid access token found, processing...');
-          cleanupPolling();
-          await handleDirectTokenResponse(access_token, state);
-        } else if (code && state && state === expectedState) {
-          debugLog('Valid authorization code found, processing...');
-          cleanupPolling();
-          await handleOAuthResponse(code, state);
-        } else {
-          debugLog('Invalid OAuth response:', { 
-            hasCode: !!code, 
-            hasToken: !!access_token,
-            hasState: !!state, 
-            stateMatch: state === expectedState 
-          });
+        // Handle the auth result
+        if (authData.type === 'access_token' && authData.access_token) {
+          await handleDirectTokenResponse(authData.access_token, authData.state || expectedState);
+        } else if (authData.type === 'authorization_code' && authData.code) {
+          await handleOAuthResponse(authData.code, authData.state || expectedState);
         }
       }
     }
   } catch (error) {
-    debugLog('Error checking tab for OAuth response:', error.message);
+    debugLog('Error checking website for auth result:', error.message);
   }
 }
 
-// Clean up polling resources
+// Clean up website auth polling resources
+function cleanupWebsiteAuthPolling() {
+  if (websiteAuthPollingInterval) {
+    clearInterval(websiteAuthPollingInterval);
+    websiteAuthPollingInterval = null;
+  }
+  
+  if (websiteAuthTabListener) {
+    chrome.tabs.onUpdated.removeListener(websiteAuthTabListener);
+    websiteAuthTabListener = null;
+  }
+  
+  debugLog('Website auth polling cleanup completed');
+}
+
+// Legacy OAuth cleanup code - kept for any remaining references
 function cleanupPolling() {
-  if (oauthPollingInterval) {
-    clearInterval(oauthPollingInterval);
-    oauthPollingInterval = null;
-  }
-  
-  if (oauthTabListener) {
-    chrome.tabs.onUpdated.removeListener(oauthTabListener);
-    oauthTabListener = null;
-  }
-  
-  debugLog('OAuth polling cleanup completed');
+  // No longer used, but kept for compatibility
+  debugLog('Legacy OAuth polling cleanup called');
 }
 
 // Fetch user's projects
@@ -592,18 +471,18 @@ chrome.action.onClicked.addListener(async (tab) => {
     }
     
     if (!accessToken) {
-      debugLog('No access token found, starting OAuth flow');
-      await startOAuthFlow();
+      debugLog('No access token found, starting website auth flow');
+      await startWebsiteAuthFlow();
       return;
     }
 
     // Verify token is still valid
     const isValid = await verifyToken(accessToken);
     if (!isValid) {
-      debugLog('Token is invalid, starting OAuth flow');
+      debugLog('Token is invalid, starting website auth flow');
       accessToken = null;
       await chrome.storage.local.remove('figma_access_token');
-      await startOAuthFlow();
+      await startWebsiteAuthFlow();
       return;
     }
     
@@ -625,7 +504,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       
   } catch (error) {
     debugLog('Error:', error);
-    await startOAuthFlow();
+    await startWebsiteAuthFlow();
   }
 });
 
