@@ -240,7 +240,7 @@
                 showStatus('Exchanging authorization code for token...', 'loading');
                 
                 try {
-                    const tokenResponse = await fetch('https://www.getfigtree.com/server/api/oauth/token', {
+                    const tokenResponse = await fetch(`${window.location.origin}/server/api/oauth/token`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
