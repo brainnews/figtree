@@ -278,31 +278,12 @@ function createFigtreeUI() {
         <div class="figtree-settings-section">
           <h3>Data Management</h3>
           <div class="figtree-settings-group">
-            <button class="figtree-settings-button" data-action="clearPinned">
+            <button class="figtree-settings-button figtree-danger-button" data-action="clearPinned">
               Clear All Pinned Items
             </button>
-            <button class="figtree-settings-button" data-action="clearProjects">
+            <button class="figtree-settings-button figtree-danger-button" data-action="clearProjects">
               Remove All Projects
             </button>
-            <button class="figtree-settings-button" data-action="clearCache">
-              Clear Cache
-            </button>
-            <button class="figtree-settings-button figtree-danger-button" data-action="clearAllData">
-              Clear All Data
-            </button>
-          </div>
-        </div>
-        <div class="figtree-settings-section">
-          <h3>Privacy</h3>
-          <div class="figtree-settings-group">
-            <label>
-              <input type="checkbox" id="dataRetentionNotice" checked disabled>
-              Data is stored locally on your device only
-            </label>
-            <p class="figtree-settings-note">
-              Your project data and preferences are stored locally in your browser. 
-              No data is sent to external servers except for Figma API calls.
-            </p>
           </div>
         </div>
       </div>
@@ -442,40 +423,13 @@ function createFigtreeUI() {
         if (confirm('Are you sure you want to remove all projects? This cannot be undone.')) {
           chrome.storage.local.remove(['figmaProjects'], () => {
             const projectsContainer = container.querySelector('.figtree-projects');
-            projectsContainer.innerHTML = `<div class="figtree-empty"><img src="${chrome.runtime.getURL('assets/figtree-projects-empty.png')}" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>`;
+            projectsContainer.innerHTML = `<div class="figtree-empty">No projects found. Add a project above to get started.</div>`;
             showError('All projects removed', 'info');
           });
         }
       });
     }
 
-    // Handle clear cache
-    const clearCacheButton = container.querySelector('[data-action="clearCache"]');
-    if (clearCacheButton) {
-      clearCacheButton.addEventListener('click', () => {
-        if (confirm('Clear cached project data? Projects will need to reload next time.')) {
-          nodeCache.clear();
-          showError('Cache cleared', 'info');
-        }
-      });
-    }
-
-    // Handle clear all data
-    const clearAllDataButton = container.querySelector('[data-action="clearAllData"]');
-    if (clearAllDataButton) {
-      clearAllDataButton.addEventListener('click', () => {
-        if (confirm('⚠️ This will remove ALL data including projects, pins, and preferences. This cannot be undone. Are you sure?')) {
-          chrome.storage.local.clear();
-          chrome.storage.sync.clear();
-          nodeCache.clear();
-          showError('All data cleared', 'info');
-          // Close the panel after clearing data
-          setTimeout(() => {
-            closePanel();
-          }, 1500);
-        }
-      });
-    }
   }
 
   // Update the copy button handlers to include pin functionality
@@ -564,11 +518,20 @@ function createFigtreeUI() {
     closeButton.addEventListener('click', closePanel);
   }
   
+  // Add Material Icons font if not already loaded
+  if (!document.querySelector('#material-icons-font')) {
+    const fontLink = document.createElement('link');
+    fontLink.id = 'material-icons-font';
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200';
+    document.head.appendChild(fontLink);
+  }
+
   // Add styles
   const style = document.createElement('style');
   style.textContent = `
     .material-symbols-outlined {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-family: 'Material Symbols Outlined', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       font-weight: normal;
       font-style: normal;
       font-size: 24px;
@@ -577,6 +540,7 @@ function createFigtreeUI() {
       white-space: nowrap;
       word-wrap: normal;
       direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
     .figtree-container {
       position: fixed;
@@ -1078,15 +1042,6 @@ function createFigtreeUI() {
 
     .figtree-settings-button:hover {
       background: #4c4c4c;
-    }
-
-    .figtree-settings-button[data-action="clearPinned"] {
-      background: #dc3545;
-      border-color: #dc3545;
-    }
-
-    .figtree-settings-button[data-action="clearPinned"]:hover {
-      background: #c82333;
     }
 
     .figtree-danger-button {
@@ -2485,7 +2440,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       projectsContainer.innerHTML = '';
       
       if (projects.length === 0) {
-        projectsContainer.innerHTML = `<div class="figtree-empty"><img src="${chrome.runtime.getURL('assets/figtree-projects-empty.png')}" alt="No projects found" class="figtree-projects-empty-image"><br/>No projects found. Add a project above to get started.</div>`;
+        projectsContainer.innerHTML = `<div class="figtree-empty">No projects found. Add a project above to get started.</div>`;
       } else {
         // Add project items
         projects.forEach(project => {
