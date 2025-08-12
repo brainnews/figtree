@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test OAuth Parameters Fix</title>
+    <style>
+        body { font-family: monospace; margin: 40px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 10px 5px 0 0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 OAuth Parameters Fix Test</h1>
+    
+    <div class="test">
+        <h3>Before Fix (Broken):</h3>
+        <code>response_type=token</code> ❌<br>
+        <small>Error: "Parameter response_type currently only supports values 'code' and 'implicit'"</small>
+    </div>
+    
+    <div class="test success">
+        <h3>After Fix (Should Work):</h3>
+        <code>response_type=code</code> ✅<br>
+        <small>Uses authorization code flow with external token exchange</small>
+    </div>
+    
+    <div class="test">
+        <h3>Test Generated OAuth URL:</h3>
+        <button onclick="generateTestUrl()">Generate OAuth URL</button>
+        <div id="urlOutput" style="margin-top: 10px;"></div>
+    </div>
+    
+    <div class="test">
+        <h3>Test Actions:</h3>
+        <button onclick="openLocalAuth()">Test Local Auth Page</button>
+        <button onclick="testAuthUrl()">Test OAuth URL</button>
+        <div id="testOutput" style="margin-top: 10px;"></div>
+    </div>
+
+    <script>
+        function generateTestUrl() {
+            const FIGMA_CLIENT_ID = 'qTujZ7BNoSdMdVikl3RaeD';
+            const REDIRECT_URI = 'http://127.0.0.1:8080/website-auth.html';
+            const state = 'test-' + Math.random().toString(36).substring(7);
+            
+            const authUrl = new URL('https://www.figma.com/oauth');
+            authUrl.searchParams.set('client_id', FIGMA_CLIENT_ID);
+            authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+            authUrl.searchParams.set('scope', 'files:read');
+            authUrl.searchParams.set('response_type', 'code');
+            authUrl.searchParams.set('state', state);
+            
+            document.getElementById('urlOutput').innerHTML = `
+                <strong>Generated OAuth URL:</strong><br>
+                <code style="word-break: break-all;">${authUrl.toString()}</code><br><br>
+                <strong>Parameters:</strong><br>
+                • client_id: ${FIGMA_CLIENT_ID}<br>
+                • redirect_uri: ${REDIRECT_URI}<br>
+                • scope: files:read<br>
+                • response_type: <span style="color: green;">code</span> ✅<br>
+                • state: ${state}
+            `;
+        }
+        
+        function openLocalAuth() {
+            const url = 'http://127.0.0.1:8080/website-auth.html';
+            document.getElementById('testOutput').innerHTML = `Opening: <a href="${url}" target="_blank">${url}</a>`;
+            window.open(url, '_blank');
+        }
+        
+        function testAuthUrl() {
+            // This would trigger the OAuth flow - for testing purposes only
+            const FIGMA_CLIENT_ID = 'qTujZ7BNoSdMdVikl3RaeD';
+            const REDIRECT_URI = 'http://127.0.0.1:8080/website-auth.html';
+            const state = 'test-' + Math.random().toString(36).substring(7);
+            
+            const authUrl = new URL('https://www.figma.com/oauth');
+            authUrl.searchParams.set('client_id', FIGMA_CLIENT_ID);
+            authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+            authUrl.searchParams.set('scope', 'files:read');
+            authUrl.searchParams.set('response_type', 'code');
+            authUrl.searchParams.set('state', state);
+            
+            document.getElementById('testOutput').innerHTML = `
+                <strong>⚠️ This will open Figma OAuth:</strong><br>
+                <a href="${authUrl.toString()}" target="_blank">Test OAuth URL</a><br>
+                <small>Only click if you want to test the actual OAuth flow</small>
+            `;
+        }
+        
+        // Auto-generate URL on load
+        generateTestUrl();
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Path Test</title>
+</head>
+<body>
+    <h1>Server Path Test</h1>
+    <p>If you can see this, your server is running from the correct directory.</p>
+    
+    <h2>File Check:</h2>
+    <div id="results"></div>
+    
+    <script>
+        // Test if the bookmarklet files are accessible
+        const filesToTest = [
+            'bookmarklet/dist/figtree-app.min.js',
+            'bookmarklet/dist/figtree-app.js',
+            'bookmarklet/demo/index.html'
+        ];
+        
+        const results = document.getElementById('results');
+        
+        filesToTest.forEach(file => {
+            fetch(file)
+            .then(response => {
+                const status = response.ok ? '✅ Found' : '❌ Not Found';
+                const type = response.headers.get('content-type') || 'unknown';
+                results.innerHTML += `<p><strong>${file}</strong>: ${status} (${response.status}) - Type: ${type}</p>`;
+            })
+            .catch(error => {
+                results.innerHTML += `<p><strong>${file}</strong>: ❌ Error - ${error.message}</p>`;
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Figtree Auth Flow</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        button {
+            background: #0D99FF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 8px 0;
+        }
+        button:hover {
+            background: #0B87E0;
+        }
+        .output {
+            background: #f5f5f5;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-family: Monaco, monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Figtree Auth Flow</h1>
+    <p>This simulates how the extension's new website-based authentication works:</p>
+    
+    <button onclick="simulateExtensionAuth()">Start Extension Auth (Open Website)</button>
+    <button onclick="testLocalAuth()">Test Local Auth File</button>
+    
+    <div id="output" class="output">Ready to test...</div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+        }
+        
+        function simulateExtensionAuth() {
+            log('Extension clicked - starting website auth flow...');
+            
+            // Generate state like the extension would
+            const state = Math.random().toString(36).substring(2, 15) + 
+                         Math.random().toString(36).substring(2, 15);
+            
+            log(`Generated state: ${state}`);
+            
+            // Simulate opening website auth with state
+            const authUrl = `website-auth.html?extension_state=${state}`;
+            log(`Opening auth URL: ${authUrl}`);
+            
+            // Open in new tab (simulating what extension does)
+            const authWindow = window.open(authUrl, '_blank');
+            
+            // Simulate polling (like the extension does)
+            let pollCount = 0;
+            const maxPolls = 30; // 1 minute of polling
+            
+            log('Starting auth polling...');
+            
+            const pollInterval = setInterval(() => {
+                pollCount++;
+                log(`Poll #${pollCount}: Checking for auth completion...`);
+                
+                if (pollCount >= maxPolls) {
+                    log('Polling timeout - auth may have failed or taken too long');
+                    clearInterval(pollInterval);
+                    return;
+                }
+                
+                // In real extension, this would inject a script to check sessionStorage
+                // For this test, we'll just show the polling process
+                if (pollCount === 10) { // Simulate successful auth after 10 polls
+                    log('✅ Auth completed! Token would be retrieved here.');
+                    clearInterval(pollInterval);
+                    authWindow.close();
+                }
+            }, 2000);
+        }
+        
+        function testLocalAuth() {
+            log('Testing local auth file...');
+            const authUrl = 'website-auth.html';
+            log(`Opening: ${authUrl}`);
+            window.open(authUrl, '_blank');
+        }
+        
+        // Log initial state
+        log('Test page loaded');
+        log('Extension simulation ready');
+    </script>
+</body>
+</html>
