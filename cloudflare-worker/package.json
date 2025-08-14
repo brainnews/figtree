@@ -1,7 +1,7 @@
 {
-  "name": "figtree-oauth-worker",
+  "name": "treekit-oauth-worker",
   "version": "1.0.0",
-  "description": "Cloudflare Worker for Figtree OAuth token exchange",
+  "description": "Cloudflare Worker for Treekit OAuth token exchange",
   "main": "worker.js",
   "scripts": {
     "dev": "wrangler dev",

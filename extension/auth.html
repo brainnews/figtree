@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treekit - Connect to Figma</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 28px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin: 0 0 32px 0;
+        }
+        
+        .auth-button {
+            background: #0D99FF;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        
+        .auth-button:hover {
+            background: #0B87E0;
+        }
+        
+        .auth-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .instructions {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 24px;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+            color: #6c757d;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img class="logo" src="icons/icon128.png" alt="Treekit icon">
+        <h1>Connect to Figma</h1>
+        <p>Authorize Treekit to access your Figma projects. This will allow you to browse and copy links to your files, pages, and frames.</p>
+        
+        <button id="authButton" class="auth-button">
+            Connect to Figma
+        </button>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="instructions">
+            <h3>What happens next?</h3>
+            <ol>
+                <li>Click "Connect to Figma" to open Figma's authorization page</li>
+                <li>Sign in to Figma and grant permission to Treekit</li>
+                <li>You'll be redirected back here automatically</li>
+                <li>Return to the Treekit extension to start browsing your projects</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const FIGMA_CLIENT_ID = 'qTujZ7BNoSdMdVikl3RaeD';
+        const REDIRECT_URI = 'https://www.gettreekit.com/auth.html';
+        
+        // DOM elements
+        const authButton = document.getElementById('authButton');
+        const statusDiv = document.getElementById('status');
+        
+        // Utility functions
+        function showStatus(message, type = 'loading') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            statusDiv.style.display = 'none';
+        }
+        
+        function generateState() {
+            return Math.random().toString(36).substring(2, 15) + 
+                   Math.random().toString(36).substring(2, 15);
+        }
+        
+        // Check if we're returning from OAuth
+        function checkForOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            const extensionState = urlParams.get('extension_state');
+            
+            if (error) {
+                showStatus(`Authentication failed: ${error}`, 'error');
+                return;
+            }
+            
+            if (code && state) {
+                handleOAuthCallback(code, state);
+                return;
+            }
+            
+            // Check URL hash for implicit flow
+            const hash = window.location.hash.substring(1);
+            const hashParams = new URLSearchParams(hash);
+            const accessToken = hashParams.get('access_token');
+            const hashState = hashParams.get('state');
+            
+            if (accessToken && hashState) {
+                handleDirectToken(accessToken, hashState);
+                return;
+            }
+        }
+        
+        // Handle OAuth authorization code
+        async function handleOAuthCallback(code, state) {
+            showStatus('Processing authorization...', 'loading');
+            authButton.disabled = true;
+            
+            try {
+                // Verify state matches what we stored
+                const storedState = sessionStorage.getItem('treekit_oauth_state');
+                if (!storedState || state !== storedState) {
+                    throw new Error('Invalid state parameter - possible security issue');
+                }
+                
+                // Get the extension state if available
+                const extensionState = sessionStorage.getItem('treekit_extension_state');
+                
+                // Exchange the authorization code for an access token using external service
+                showStatus('Exchanging authorization code for token...', 'loading');
+                
+                try {
+                    const tokenResponse = await fetch(`${window.location.origin}/server/api/oauth/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            code: code,
+                            redirect_uri: REDIRECT_URI,
+                            client_id: FIGMA_CLIENT_ID
+                        })
+                    });
+                    
+                    if (!tokenResponse.ok) {
+                        const errorText = await tokenResponse.text();
+                        throw new Error(`Token exchange failed: ${errorText}`);
+                    }
+                    
+                    const tokenData = await tokenResponse.json();
+                    
+                    // Store the access token for extension to retrieve
+                    const resultData = {
+                        type: 'access_token',
+                        access_token: tokenData.access_token,
+                        state: extensionState || state,
+                        figma_state: state,
+                        timestamp: Date.now()
+                    };
+                    
+                    sessionStorage.setItem('treekit_auth_result', JSON.stringify(resultData));
+                    
+                } catch (error) {
+                    throw new Error(`Failed to exchange code for token: ${error.message}`);
+                }
+                
+                // Try to communicate with extension if possible
+                if (window.chrome && chrome.runtime) {
+                    try {
+                        chrome.runtime.sendMessage('figtree-extension-id', {
+                            action: 'authComplete',
+                            data: tokenData
+                        });
+                    } catch (e) {
+                        // Extension communication failed, but that's OK
+                        console.log('Extension communication failed:', e);
+                    }
+                }
+                
+                showStatus('✅ Authorization successful! You can now close this tab and return to the Treekit extension.', 'success');
+                
+            } catch (error) {
+                console.error('OAuth callback error:', error);
+                showStatus(`Authentication failed: ${error.message}`, 'error');
+            } finally {
+                authButton.disabled = false;
+                sessionStorage.removeItem('treekit_oauth_state');
+                sessionStorage.removeItem('treekit_extension_state');
+            }
+        }
+        
+        // Handle direct access token (implicit flow)
+        async function handleDirectToken(accessToken, state) {
+            showStatus('Processing authentication...', 'loading');
+            authButton.disabled = true;
+            
+            try {
+                // Verify state matches what we stored
+                const storedState = sessionStorage.getItem('treekit_oauth_state');
+                if (!storedState || state !== storedState) {
+                    throw new Error('Invalid state parameter - possible security issue');
+                }
+                
+                // Get the extension state if available
+                const extensionState = sessionStorage.getItem('treekit_extension_state');
+                
+                const tokenData = {
+                    type: 'access_token',
+                    access_token: accessToken,
+                    state: extensionState || state,
+                    figma_state: state,
+                    timestamp: Date.now()
+                };
+                
+                // Store token data for extension to retrieve
+                sessionStorage.setItem('treekit_auth_result', JSON.stringify(tokenData));
+                
+                // Try to communicate with extension if possible
+                if (window.chrome && chrome.runtime) {
+                    try {
+                        chrome.runtime.sendMessage('figtree-extension-id', {
+                            action: 'authComplete',
+                            data: tokenData
+                        });
+                    } catch (e) {
+                        console.log('Extension communication failed:', e);
+                    }
+                }
+                
+                showStatus('✅ Authentication successful! You can now close this tab and return to the Treekit extension.', 'success');
+                
+            } catch (error) {
+                console.error('Direct token error:', error);
+                showStatus(`Authentication failed: ${error.message}`, 'error');
+            } finally {
+                authButton.disabled = false;
+                sessionStorage.removeItem('treekit_oauth_state');
+                sessionStorage.removeItem('treekit_extension_state');
+            }
+        }
+        
+        // Start OAuth flow
+        function startOAuthFlow() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const extensionState = urlParams.get('extension_state');
+            
+            const state = generateState();
+            sessionStorage.setItem('treekit_oauth_state', state);
+            
+            // If we have an extension state, store it to pass back later
+            if (extensionState) {
+                sessionStorage.setItem('treekit_extension_state', extensionState);
+            }
+            
+            // Use authorization code flow (standard OAuth2 pattern)
+            const authUrl = new URL('https://www.figma.com/oauth');
+            authUrl.searchParams.set('client_id', FIGMA_CLIENT_ID);
+            authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+            authUrl.searchParams.set('scope', 'files:read');
+            authUrl.searchParams.set('response_type', 'code'); // Authorization code flow (proven working)
+            authUrl.searchParams.set('state', state);
+            
+            showStatus('Redirecting to Figma...', 'loading');
+            
+            // Debug: Log the OAuth URL being used
+            console.log('Treekit OAuth URL:', authUrl.toString());
+            
+            // Redirect to Figma OAuth
+            window.location.href = authUrl.toString();
+        }
+        
+        // Event listeners
+        authButton.addEventListener('click', startOAuthFlow);
+        
+        // Check for OAuth callback on page load
+        window.addEventListener('DOMContentLoaded', checkForOAuthCallback);
+        
+        // Also check immediately in case DOMContentLoaded already fired
+        checkForOAuthCallback();
+    </script>
+</body>
+</html>

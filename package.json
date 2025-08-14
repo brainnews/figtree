@@ -1,5 +1,5 @@
 {
-  "name": "figtree-extension",
+  "name": "treekit-extension",
   "version": "1.0.0",
   "description": "Chrome extension for quick access to Figma projects",
   "scripts": {
@@ -8,7 +8,7 @@
     "test": "echo \"Run: npm run dev, then load extension in Chrome Developer Mode\"",
     "build": "echo \"Extension ready for production - update background.js URLs\""
   },
-  "keywords": ["figma", "chrome-extension", "productivity"],
+  "keywords": ["figma", "chrome-extension", "productivity", "treekit"],
   "author": "Miles Gilbert",
   "private": true
 }

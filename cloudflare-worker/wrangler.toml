@@ -1,18 +1,18 @@
-# Cloudflare Workers configuration for Figtree OAuth
+# Cloudflare Workers configuration for Treekit OAuth
 
-name = "figtree-oauth"
+name = "treekit-oauth"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Routes - this will handle requests to getfigtree.com/server/api/oauth/token
+# Routes - this will handle requests to gettreekit.com/server/api/oauth/token
 [[routes]]
-pattern = "getfigtree.com/server/api/oauth/token"
-zone_name = "getfigtree.com"
+pattern = "gettreekit.com/server/api/oauth/token"
+zone_name = "gettreekit.com"
 
 [[routes]]
-pattern = "www.getfigtree.com/server/api/oauth/token"
-zone_name = "getfigtree.com"
+pattern = "www.gettreekit.com/server/api/oauth/token"
+zone_name = "gettreekit.com"
 
 # Environment variables (set these in Cloudflare dashboard)
 [env.production.vars]
@@ -21,5 +21,5 @@ zone_name = "getfigtree.com"
 # Optional: Custom domain setup
 # [env.production]
 # routes = [
-#   { pattern = "getfigtree.com/api/*", zone_name = "getfigtree.com" }
+#   { pattern = "gettreekit.com/api/*", zone_name = "gettreekit.com" }
 # ]

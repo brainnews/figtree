@@ -1,14 +1,14 @@
-# 🔄 OAuth Authentication Merge Summary
+# 🔄 OAuth Authentication Implementation Summary
 
-## ✅ Successfully Merged to Main Branch
+## ✅ Successfully Implemented
 
-The website-based OAuth authentication system has been successfully merged from the `bookmarklet` branch to the `main` branch.
+The website-based OAuth authentication system has been successfully implemented in the `main` branch.
 
 ## 📁 Files Added/Modified
 
 ### Core OAuth Implementation:
 - ✅ **`background.js`** - Updated with website-based auth flow
-- ✅ **`website-auth.html`** - New OAuth handler page
+- ✅ **`auth.html`** - New OAuth handler page
 - ✅ **`manifest.json`** - Updated with web accessible resources
 
 ### Documentation:
@@ -21,7 +21,6 @@ The website-based OAuth authentication system has been successfully merged from 
 
 ### Development Tools:
 - ✅ **`dev-server.py`** - Local development server
-- ✅ **`test-setup.js`** - Setup verification script
 - ✅ **`package.json`** - NPM scripts for development
 
 ## 🔧 Key Changes
@@ -31,7 +30,7 @@ The website-based OAuth authentication system has been successfully merged from 
 - **After**: Clean website-based OAuth with reliable token exchange
 
 ### Authentication Process:
-1. Extension opens `website-auth.html` 
+1. Extension opens `auth.html` 
 2. Website handles Figma OAuth with `response_type=code`
 3. Website exchanges code for token via external service
 4. Extension retrieves token via script injection
@@ -54,7 +53,7 @@ The main branch now contains:
 ## 🧪 Next Steps
 
 ### For Testing:
-1. Upload `website-auth.html` to `https://www.getfigtree.com/website-auth.html`
+1. Upload `auth.html` to `https://www.gettreekit.com/auth.html`
 2. Load extension from main branch
 3. Test complete OAuth flow
 4. Verify all extension features work
@@ -64,15 +63,15 @@ The main branch now contains:
 2. Test in production environment
 3. Deploy to Chrome Web Store when ready
 
-## 📊 Merge Details
+## 📊 Implementation Details
 
 ```
-Branch: bookmarklet → main
+Implementation: Website-based OAuth authentication system
 Commit: 55fbdb4 - Implement website-based OAuth authentication system
 Files Changed: 37 files
 Additions: +9376 lines
 Deletions: -201 lines
-Status: ✅ Fast-forward merge successful
+Status: ✅ Successfully implemented
 ```
 
 ## 🎯 Benefits Achieved

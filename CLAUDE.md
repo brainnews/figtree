@@ -4,20 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Figtree is a Chrome extension that provides quick access to Figma projects through a context menu interface. Users can copy direct links to any level of their Figma projects (project, page, frame, or group) with visual feedback and clipboard integration.
+Figtree is a Chrome extension that provides quick access to Figma projects through a floating UI panel. Users can copy direct links to any level of their Figma projects (project, page, frame, or group) with visual feedback and clipboard integration. The extension uses a website-based OAuth flow with external server infrastructure for secure token exchange.
 
 ## Development Commands
 
-### Testing the Extension
-- Load unpacked extension from `chrome://extensions/` in developer mode
-- Make changes to source files and click "Reload" on the extension card to test changes
-- No build process required - all files are directly loaded by Chrome
+### Local Development
+- `npm run dev` - Start local development server (Python 3) on port 5500
+- `npm run dev:alt` - Alternative server using Python's http.server
+- `npm run test` - Shows testing instructions (load extension in Chrome)
+- `npm run build` - Production preparation reminder
+
+### Extension Testing
+1. Start local server: `npm run dev` or `python3 dev-server.py`
+2. Load unpacked extension from `chrome://extensions/` in developer mode
+3. Make changes to source files and click "Reload" on the extension card
+4. Test OAuth flow using `auth.html` served locally
 
 ### Key Files to Modify
 - `manifest.json` - Extension configuration, permissions, and OAuth settings
 - `background.js` - Service worker handling OAuth, API calls, and browser action
 - `content.js` - UI creation, project management, and user interactions
-- `config.js` - Build configuration (production/development flags)
+- `auth.html` - OAuth authentication handler page
+- `config.js` - Development/production configuration flags
 
 ## Architecture
 
@@ -25,17 +33,17 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
 
 **Chrome Extension Structure:**
 - **Manifest V3** extension with service worker architecture
-- **OAuth 2.0** integration with Figma API for secure authentication
+- **Website-based OAuth** with external server infrastructure for secure token exchange
 - **Content script injection** for UI overlay on any webpage
 - **Chrome storage** for persisting projects and user preferences
 
 **Key Modules:**
 
 1. **Background Service Worker (`background.js`)**
-   - Manages Figma OAuth flow and token exchange
-   - Handles extension icon clicks and context menu actions
-   - Fetches project data from Figma API
-   - Manages cross-tab communication for authorization state
+   - Manages website-based OAuth flow by opening `auth.html`
+   - Handles extension icon clicks and browser action
+   - Fetches project data from Figma API with stored access tokens
+   - Polls for OAuth completion via script injection
 
 2. **Content Script (`content.js`)**
    - Creates draggable floating UI panel with project hierarchy
@@ -43,18 +51,31 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
    - Manages pinned items system for quick access
    - Handles clipboard operations and visual feedback
 
-3. **OAuth Handler (`oauth.html` + `oauth.js`)**
-   - Processes OAuth callback from Figma
-   - Exchanges authorization codes for access tokens
-   - Redirects to welcome page after successful authentication
+3. **Website OAuth Handler (`auth.html`)**
+   - Standalone OAuth page served from `gettreekit.com` or local server
+   - Handles Figma OAuth authorization code flow
+   - Exchanges codes for tokens via external server (`/api/oauth/token`)
+   - Stores access tokens in sessionStorage for extension retrieval
+
+4. **Server Infrastructure**:
+   - **Cloudflare Worker** (`cloudflare-worker/worker.js`) - Edge computing solution for token exchange
 
 ### Data Flow
 
-1. **Authentication**: User clicks extension → OAuth flow → Token storage
+1. **Authentication**: User clicks extension → Opens `auth.html` → Figma OAuth → External token exchange → Token stored in sessionStorage → Extension retrieves token
 2. **Project Loading**: Fetch user projects → Cache in chrome.storage.local
 3. **UI Interaction**: User expands project → Lazy load pages/frames via Figma API
 4. **Link Copying**: Click copy button → Generate Figma URL → Copy to clipboard
 5. **Pinning System**: Pin/unpin items → Store in chrome.storage.sync
+
+### OAuth Flow Architecture
+
+```
+Extension → auth.html → Figma OAuth → Cloudflare Worker → Access Token
+    ↓              ↓                  ↓               ↓               ↓
+  Opens tab    Authorization      Server exchange     Token         Extension
+              code received      (Cloudflare)        stored        retrieval
+```
 
 ### API Integration
 
@@ -94,10 +115,28 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
 
 ## Development Notes
 
+### OAuth System Configuration
+- **Development**: Uses local server at `http://127.0.0.1:8080/auth.html` (auto-detected)
+- **Production**: Uses `https://www.gettreekit.com/auth.html`
+- **Config flags**: `config.js` controls development vs production behavior
+- **Server deployment**: Cloudflare Workers (`cloudflare-worker/`)
+
+### Local Development Setup
+1. Start local server: `npm run dev` (serves on port 5500)
+2. Load extension in Chrome Developer Mode
+3. OAuth page auto-serves from local server during development
+4. Debug using Chrome DevTools on both extension and auth page
+
 ### Testing OAuth Flow
-- Use `manifest-test.json` for development with test OAuth credentials
-- Production OAuth requires proper client_id/client_secret in manifest.json
+- Extension automatically detects local vs production environment
+- Use browser DevTools to monitor `sessionStorage` for auth tokens
+- Check extension background console for OAuth polling logs
 - Test with various Figma project types and permissions
+
+### Server Infrastructure
+- **Cloudflare Deployment**: `cd cloudflare-worker && wrangler deploy`
+- **Environment Variable**: `FIGMA_CLIENT_SECRET` must be set in Cloudflare dashboard
+- **Token Exchange**: Cloudflare Worker handles client secret securely
 
 ### Content Script Injection
 - UI injects into any webpage via `<all_urls>` permission
@@ -114,21 +153,40 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
 - User feedback for authentication failures
 - Retry mechanisms for network requests
 
+## Deployment Architecture
+
+### Components
+- **Chrome Extension**: Distributed via Chrome Web Store or developer mode
+- **Website Auth Page**: Hosted on `gettreekit.com` (GitHub Pages + Cloudflare)
+- **OAuth Server**: Cloudflare Worker for secure token exchange
+- **Domain Setup**: `gettreekit.com` handles both auth page and API endpoints
+
+### Environment Detection
+- Extension automatically detects development vs production
+- Development uses local server for auth page (`npm run dev`)
+- Production uses hosted auth page at `gettreekit.com/auth.html`
+
 ## Common Development Patterns
 
 ### Adding New UI Features
-1. Add HTML structure in `createFigtreeUI()` function
+1. Add HTML structure in `createFigtreeUI()` function in `content.js`
 2. Add corresponding CSS in the inline style block
 3. Implement event handlers after DOM creation
 4. Update storage schema if persistent data needed
 
 ### Extending API Integration
-1. Add new API endpoints in background.js
-2. Implement caching strategy for new data types
+1. Add new API endpoints in `background.js`
+2. Implement caching strategy for new data types in `nodeCache`
 3. Update content script to display new information
 4. Handle loading states and error conditions
 
-### Modifying Project Hierarchy
+### Modifying OAuth Flow
+1. Update `auth.html` for auth page changes
+2. Modify `background.js` for extension-side OAuth handling
+3. Update server code (`server/` or `cloudflare-worker/`) for token exchange
+4. Test both local development and production environments
+
+### Project Hierarchy Management
 - Projects contain Pages contain Frames contain Groups
 - Each level has consistent copy/pin/expand functionality
 - Filter system searches all levels simultaneously

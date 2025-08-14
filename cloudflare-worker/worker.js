@@ -1,4 +1,4 @@
-// Cloudflare Worker for Figtree OAuth token exchange
+// Cloudflare Worker for Treekit OAuth token exchange
 // Deploy this to handle POST /api/oauth/token
 
 export default {

@@ -1,4 +1,4 @@
-# Figtree Chrome Extension
+# Treekit Chrome Extension
 
 A Chrome extension that allows you to quickly copy direct links to specific elements in your Figma projects through the context menu.
 
@@ -19,7 +19,7 @@ A Chrome extension that allows you to quickly copy direct links to specific elem
 1. Clone this repository or download the extension files
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" in the top right corner
-4. Click "Load unpacked" and select the `figtree` directory
+4. Click "Load unpacked" and select the `treekit` directory
 5. Configure your Figma OAuth application:
    - Go to your Figma account settings
    - Navigate to the "OAuth applications" section
@@ -33,7 +33,7 @@ A Chrome extension that allows you to quickly copy direct links to specific elem
 ## Usage
 
 1. Right-click anywhere on a webpage to open the context menu
-2. Click on "Figtree" to see your starred projects
+2. Click on "Treekit" to see your starred projects
    - If you're not logged in, you'll be prompted to authenticate with your Figma account
 3. Navigate through the menu structure:
    - Select a project to copy its link

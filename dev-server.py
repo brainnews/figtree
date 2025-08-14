@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Simple HTTP server for local Figtree development and testing.
-Serves the website-auth.html file with proper CORS headers.
+Simple HTTP server for local Treekit development and testing.
+Serves the auth.html file with proper CORS headers.
 """
 
 import http.server
@@ -10,7 +10,7 @@ import os
 import sys
 from urllib.parse import urlparse, parse_qs
 
-class FigtreeDevHandler(http.server.SimpleHTTPRequestHandler):
+class TreekitDevHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # Add CORS headers for local development
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -21,9 +21,9 @@ class FigtreeDevHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
         
-        # Root path - serve website-auth.html
-        if parsed_path.path == '/' or parsed_path.path == '/website-auth.html':
-            self.path = '/website-auth.html'
+        # Root path - serve auth.html
+        if parsed_path.path == '/' or parsed_path.path == '/auth.html':
+            self.path = '/auth.html'
         
         # Handle API endpoints for testing
         elif parsed_path.path == '/api/auth/check':
@@ -61,13 +61,13 @@ class FigtreeDevHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server(port=5500):
     """Run the development server"""
-    handler = FigtreeDevHandler
+    handler = TreekitDevHandler
     
     with socketserver.TCPServer(("", port), handler) as httpd:
-        print(f"🚀 Figtree Development Server")
+        print(f"🚀 Treekit Development Server")
         print(f"📂 Serving files from: {os.getcwd()}")
         print(f"🌐 Server running at: http://127.0.0.1:{port}")
-        print(f"🔗 Auth page: http://127.0.0.1:{port}/website-auth.html")
+        print(f"🔗 Auth page: http://127.0.0.1:{port}/auth.html")
         print(f"🛑 Press Ctrl+C to stop")
         print("-" * 50)
         

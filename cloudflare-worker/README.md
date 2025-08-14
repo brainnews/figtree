@@ -1,6 +1,6 @@
-# Figtree OAuth - Cloudflare Worker
+# Treekit OAuth - Cloudflare Worker
 
-This Cloudflare Worker handles OAuth token exchange for the Figtree Chrome extension, integrating seamlessly with your existing getfigtree.com domain.
+This Cloudflare Worker handles OAuth token exchange for the Treekit Chrome extension, integrating seamlessly with your existing gettreekit.com domain.
 
 ## Setup Steps
 
@@ -28,7 +28,7 @@ wrangler secret put FIGMA_CLIENT_SECRET
 # Enter: aZy7fIw50AZmEyvriMdz0tnousQQYV
 
 # Option B: Via Cloudflare Dashboard
-# Go to Workers > figtree-oauth > Settings > Environment Variables
+# Go to Workers > treekit-oauth > Settings > Environment Variables
 # Add: FIGMA_CLIENT_SECRET = aZy7fIw50AZmEyvriMdz0tnousQQYV
 ```
 
@@ -47,15 +47,15 @@ wrangler deploy
 If the route doesn't work automatically:
 
 1. Go to **Cloudflare Dashboard** > **Workers & Pages**
-2. Click your **figtree-oauth** worker
+2. Click your **treekit-oauth** worker
 3. Go to **Settings** > **Triggers**
-4. Add custom domain route: `getfigtree.com/api/oauth/token`
+4. Add custom domain route: `gettreekit.com/api/oauth/token`
 
 ## How It Works
 
 Once deployed, the worker will handle:
 
-- **POST** `https://getfigtree.com/api/oauth/token` - Token exchange
+- **POST** `https://gettreekit.com/api/oauth/token` - Token exchange
 - **OPTIONS** requests for CORS preflight
 
 The worker runs on Cloudflare's edge network, so it's:
@@ -66,11 +66,7 @@ The worker runs on Cloudflare's edge network, so it's:
 
 ## Add OAuth Page to GitHub Pages
 
-Add this to your GitHub Pages repository as `oauth.html`:
-
-```html
-<!-- Copy the content from server/public/oauth.html -->
-```
+The auth.html page is already configured to work with this Cloudflare Worker.
 
 ## Testing
 
@@ -81,11 +77,11 @@ wrangler dev
 # Test at http://localhost:8787/api/oauth/token
 ```
 
-## Benefits vs Vercel
+## Benefits of Cloudflare Workers
 
-- ✅ Same domain (getfigtree.com)
+- ✅ Same domain (gettreekit.com)
 - ✅ Integrated with your existing Cloudflare setup
 - ✅ No subdomain or DNS configuration needed
 - ✅ Faster (edge computing)
-- ✅ Free tier more generous for this use case
-- ✅ Works seamlessly with GitHub Pages
+- ✅ Free tier generous for this use case
+- ✅ Works seamlessly with Cloudflare Pages
