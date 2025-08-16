@@ -232,7 +232,6 @@ function createTreekitUI() {
   container.innerHTML = `
     <div class="treekit-header">
       <img src="${chrome.runtime.getURL('assets/treekit-icon-transparent.png')}" alt="Treekit Logo" class="treekit-logo">
-      <span class="treekit-title">Treekit</span>
       <div class="treekit-header-buttons">
         <button class="treekit-settings" title="Settings">
           <span class="material-symbols-outlined">settings</span>
@@ -574,6 +573,7 @@ function createTreekitUI() {
       padding: 12px 16px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       cursor: move;
     }
@@ -632,13 +632,6 @@ function createTreekitUI() {
 
     .treekit-logo {
       width: 24px;
-    }
-    
-    .treekit-title {
-      margin-left: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      flex-grow: 1;
     }
 
     .treekit-projects-empty-image {
@@ -877,8 +870,16 @@ function createTreekitUI() {
     
     .treekit-error::before {
       content: 'error';
-      font-family: 'Material Icons';
+      font-family: 'Material Symbols Outlined';
       font-size: 14px;
+    }
+    
+    .treekit-loading::before {
+      content: 'refresh';
+      font-family: 'Material Symbols Outlined';
+      font-size: 14px;
+      display: inline-block;
+      animation: treekit-spin 0.6s linear infinite;
     }
     
     .treekit-loading {
@@ -888,14 +889,6 @@ function createTreekitUI() {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    
-    .treekit-loading::before {
-      content: 'refresh';
-      font-family: 'Material Icons';
-      font-size: 14px;
-      display: inline-block;
-      animation: treekit-spin 0.6s linear infinite;
     }
     
     @keyframes treekit-spin {

@@ -21,11 +21,11 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
 4. Test OAuth flow using `auth.html` served locally
 
 ### Key Files to Modify
-- `manifest.json` - Extension configuration, permissions, and OAuth settings
-- `background.js` - Service worker handling OAuth, API calls, and browser action
-- `content.js` - UI creation, project management, and user interactions
+- `extension/manifest.json` - Extension configuration, permissions, and OAuth settings
+- `extension/background.js` - Service worker handling OAuth, API calls, and browser action
+- `extension/content.js` - UI creation, project management, and user interactions
 - `auth.html` - OAuth authentication handler page
-- `config.js` - Development/production configuration flags
+- `extension/config.js` - Development/production configuration flags
 
 ## Architecture
 
@@ -39,13 +39,13 @@ Figtree is a Chrome extension that provides quick access to Figma projects throu
 
 **Key Modules:**
 
-1. **Background Service Worker (`background.js`)**
+1. **Background Service Worker (`extension/background.js`)**
    - Manages website-based OAuth flow by opening `auth.html`
    - Handles extension icon clicks and browser action
    - Fetches project data from Figma API with stored access tokens
    - Polls for OAuth completion via script injection
 
-2. **Content Script (`content.js`)**
+2. **Content Script (`extension/content.js`)**
    - Creates draggable floating UI panel with project hierarchy
    - Implements search functionality with real-time filtering
    - Manages pinned items system for quick access
@@ -116,22 +116,8 @@ Extension → auth.html → Figma OAuth → Cloudflare Worker → Access Token
 ## Development Notes
 
 ### OAuth System Configuration
-- **Development**: Uses local server at `http://127.0.0.1:8080/auth.html` (auto-detected)
 - **Production**: Uses `https://www.gettreekit.com/auth.html`
-- **Config flags**: `config.js` controls development vs production behavior
 - **Server deployment**: Cloudflare Workers (`cloudflare-worker/`)
-
-### Local Development Setup
-1. Start local server: `npm run dev` (serves on port 5500)
-2. Load extension in Chrome Developer Mode
-3. OAuth page auto-serves from local server during development
-4. Debug using Chrome DevTools on both extension and auth page
-
-### Testing OAuth Flow
-- Extension automatically detects local vs production environment
-- Use browser DevTools to monitor `sessionStorage` for auth tokens
-- Check extension background console for OAuth polling logs
-- Test with various Figma project types and permissions
 
 ### Server Infrastructure
 - **Cloudflare Deployment**: `cd cloudflare-worker && wrangler deploy`
@@ -161,29 +147,24 @@ Extension → auth.html → Figma OAuth → Cloudflare Worker → Access Token
 - **OAuth Server**: Cloudflare Worker for secure token exchange
 - **Domain Setup**: `gettreekit.com` handles both auth page and API endpoints
 
-### Environment Detection
-- Extension automatically detects development vs production
-- Development uses local server for auth page (`npm run dev`)
-- Production uses hosted auth page at `gettreekit.com/auth.html`
-
 ## Common Development Patterns
 
 ### Adding New UI Features
-1. Add HTML structure in `createFigtreeUI()` function in `content.js`
+1. Add HTML structure in `createFigtreeUI()` function in `extension/content.js`
 2. Add corresponding CSS in the inline style block
 3. Implement event handlers after DOM creation
 4. Update storage schema if persistent data needed
 
 ### Extending API Integration
-1. Add new API endpoints in `background.js`
+1. Add new API endpoints in `extension/background.js`
 2. Implement caching strategy for new data types in `nodeCache`
 3. Update content script to display new information
 4. Handle loading states and error conditions
 
 ### Modifying OAuth Flow
 1. Update `auth.html` for auth page changes
-2. Modify `background.js` for extension-side OAuth handling
-3. Update server code (`server/` or `cloudflare-worker/`) for token exchange
+2. Modify `extension/background.js` for extension-side OAuth handling
+3. Update server code (`cloudflare-worker/`) for token exchange
 4. Test both local development and production environments
 
 ### Project Hierarchy Management
