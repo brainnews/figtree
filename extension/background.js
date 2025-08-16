@@ -390,14 +390,7 @@ async function checkWebsiteForAuthResult(expectedState, authTabId) {
         
         cleanupWebsiteAuthPolling();
         
-        // Close the auth tab
-        try {
-          await chrome.tabs.remove(authTabId);
-        } catch (e) {
-          debugLog('Could not close auth tab:', e.message);
-        }
-        
-        // Handle the auth result
+        // Handle the auth result (auth tab will redirect to welcome page)
         if (authData.type === 'access_token' && authData.access_token) {
           await handleDirectTokenResponse(authData.access_token, authData.state || expectedState);
         } else if (authData.type === 'authorization_code' && authData.code) {
