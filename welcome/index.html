@@ -104,11 +104,13 @@
             margin-bottom: 16px;
         }
 
-        .step-content .material-symbols-outlined.inline-icon {
-            font-size: 20px;
-            transform: translateY(5px);
-            border-radius: 4px;
-            padding: 2px;
+        .step-image {
+            max-width: 100%;
+            width: 298px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px var(--shadow);
+            margin-top: 12px;
         }
         .step-content a {
             color: var(--green);
@@ -186,9 +188,16 @@
             }
 
             .step {
-                padding: 24px;
+                margin-bottom: 32px;
                 flex-direction: column;
                 gap: 16px;
+                align-items: center;
+                text-align: center;
+            }
+            
+            .step-image {
+                width: 100%;
+                max-width: 280px;
             }
 
             .input-container {
@@ -204,8 +213,8 @@
 <body>
     <section class="hero">
         <div class="container">
-            <h1>Thanks for installing Treekit</h1>
-            <p>Let's get started by adding your first Figma project</p>
+            <h1>Welcome to <span>Treekit</span></h1>
+            <p>Quick access to your Figma projects from anywhere on the web. Let's get you set up!</p>
         </div>
     </section>
 
@@ -214,9 +223,9 @@
             <div class="step">
                 <div class="step-number">1</div>
                 <div class="step-content">
-                    <h3>Copy your Figma project link</h3>
-                    <p>Go to your Figma projects and copy the link to any project you want to add to Treekit.</p>
-                    <a href="https://www.figma.com/files/team/1302457866139714517/recents-and-sharing" target="_blank">
+                    <h3>Find a Figma project</h3>
+                    <p>Open your Figma projects page and locate any project you'd like to access quickly. Right-click on the project and select "Copy link" from the menu.</p>
+                    <a href="https://www.figma.com/files/recents" target="_blank">
                         Open your Figma projects
                         <span class="material-symbols-outlined">open_in_new</span>
                     </a>
@@ -226,22 +235,22 @@
                 <div class="step-number">2</div>
                 <div class="step-content">
                     <h3>Open Treekit</h3>
-                    <p>Open Treekit by clicking the extension icon <img src="../icons/icon128.png" alt="Treekit icon" style="width: 28px; height: 28px; vertical-align: middle; background: var(--background-alt); border-radius: 4px; padding: 4px; transform: translateY(-2px); margin: 0 2px;"> in the top right corner of your browser.</p>
+                    <p>Click the Treekit extension icon in your browser's toolbar (top-right corner). If you don't see it, click the puzzle piece icon to find it in your extensions.</p>
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
                 <div class="step-content">
-                    <h3>Add your project to Treekit</h3>
-                    <p>Paste the Figma project link into the "Add Figma project by URL" input and press enter or click the add button. Treekit will automatically add the project to your list of projects.</p>
-                    <img src="add-url-zoom-in-1.png" alt="UI example for adding a project to Treekit" style="width: 298px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 12px var(--shadow);">
+                    <h3>Add your project</h3>
+                    <p>Paste your copied project link into the input field at the top of Treekit and press Enter. Your project will appear in the list below.</p>
+                    <img src="add-url-zoom-in-1.png" alt="Treekit interface showing how to add a project" class="step-image">
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">4</div>
                 <div class="step-content">
-                    <h3>That's it!</h3>
-                    <p>Now you can start using Treekit to <span class="material-symbols-outlined inline-icon" style="color: rgb(13, 255, 126); background: rgba(13, 153, 255, 0.1);">link</span> copy links to your Figma projects. You can also <span class="material-symbols-outlined inline-icon" style="color: #FFD700; background: rgba(255, 215, 0, 0.1);">keep</span> pin projects, pages, frames, or groups to the top of the list to keep them at the top of your list.</p>
+                    <h3>Start exploring!</h3>
+                    <p>Now you can browse your project's pages and frames, copy direct links to any element, and pin your favorites to the top. Treekit works on any website, giving you instant access to your Figma projects wherever you are.</p>
                 </div>
             </div>
         </div>
