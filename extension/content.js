@@ -155,8 +155,8 @@ function createTreekitUI() {
   let yOffset = 0;
 
   const dragStart = (e) => {
-    // Only allow dragging from the header or container itself (not its children)
-    if (e.target.closest('.treekit-add-project, .treekit-search, .treekit-projects')) {
+    // Only prevent dragging from buttons and inputs
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button, input')) {
       return;
     }
 
@@ -199,11 +199,12 @@ function createTreekitUI() {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Calculate bounds to keep at least 20px visible
-    const minX = -(viewportWidth + containerRect.width);
-    const maxX = viewportWidth - containerRect.width + 20;
-    const minY = 0;
-    const maxY = viewportHeight - 20;
+    // Calculate bounds - container starts at left: calc(100vw - 320px)
+    const initialLeft = viewportWidth - 320; // Initial position from CSS
+    const minX = -(initialLeft - 20); // Allow dragging to 20px from left edge
+    const maxX = 20; // Allow dragging 20px past the right edge
+    const minY = -20; // Allow dragging 20px above top
+    const maxY = viewportHeight - containerRect.height;
 
     // Apply bounds
     xOffset = Math.min(Math.max(currentX, minX), maxX);
@@ -542,26 +543,37 @@ function createTreekitUI() {
       font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
     .treekit-container {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      width: 300px;
-      max-height: 80vh;
-      background: #2c2c2c;
-      backdrop-filter: blur(24px);
-      border-radius: 16px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-      z-index: 999999;
-      display: flex;
-      flex-direction: column;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      cursor: move;
-      user-select: none;
-      transform: translate(0, 0);
-      transition: max-height 0.3s ease;
-      overflow: hidden;
-      border: 1px solid #3d3d3d;
+      position: fixed !important;
+      top: 20px !important;
+      left: calc(100vw - 320px) !important;
+      width: 300px !important;
+      max-height: 80vh !important;
+      background: #2c2c2c !important;
+      backdrop-filter: blur(24px) !important;
+      border-radius: 16px !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+      z-index: 999999 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      color: #fff !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      cursor: move !important;
+      user-select: none !important;
+      transform-origin: top left !important;
+      transition: max-height 0.3s ease !important;
+      overflow: hidden !important;
+      border: 1px solid #3d3d3d !important;
+      contain: layout style !important;
+      isolation: isolate !important;
+    }
+    
+    /* Reset all input, textarea, and select elements within the extension */
+    .treekit-container input,
+    .treekit-container textarea,
+    .treekit-container select {
+      all: unset !important;
+      box-sizing: border-box !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
     
     .treekit-container.minimized {
@@ -613,12 +625,14 @@ function createTreekitUI() {
 
     .treekit-settings:hover {
       opacity: 1;
+      border: none;
     }
 
     .treekit-minimize:hover,
     .treekit-close:hover {
       background: rgba(255, 255, 255, 0.1);
       color: rgba(255, 255, 255, 0.8);
+      border: none;
     }
 
     .treekit-minimize .material-symbols-outlined {
@@ -660,22 +674,54 @@ function createTreekitUI() {
     }
     
     .treekit-url-input {
-      flex-grow: 1;
-      background: transparent;
-      border: none;
-      border-radius: 4px;
-      padding: 6px 0px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
+      flex-grow: 1 !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 6px 0px !important;
+      color: #fff !important;
+      font-size: 13px !important;
+      outline: none !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      box-sizing: border-box !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      line-height: normal !important;
+      height: auto !important;
+      min-height: unset !important;
+      max-height: unset !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      vertical-align: baseline !important;
+      text-align: left !important;
+      text-indent: 0 !important;
+      letter-spacing: normal !important;
+      word-spacing: normal !important;
+      text-transform: none !important;
+      text-decoration: none !important;
+      font-weight: normal !important;
+      font-style: normal !important;
+      font-variant: normal !important;
     }
     
     .treekit-url-input:focus {
-      border-color: #0D99FF;
+      border-color: #0D99FF !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
     
     .treekit-url-input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.4) !important;
+      opacity: 1 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      font-size: 13px !important;
+      font-weight: normal !important;
+      font-style: normal !important;
     }
     
     .treekit-add-button {
@@ -709,23 +755,53 @@ function createTreekitUI() {
     }
     
     .treekit-search-input {
-      width: 100%;
-      background: transparent;
-      border: none;
-      border-radius: 4px;
-      padding: 6px 0px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-      box-sizing: border-box;
+      width: 100% !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 6px 0px !important;
+      color: #fff !important;
+      font-size: 13px !important;
+      outline: none !important;
+      box-sizing: border-box !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      line-height: normal !important;
+      height: auto !important;
+      min-height: unset !important;
+      max-height: unset !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      vertical-align: baseline !important;
+      text-align: left !important;
+      text-indent: 0 !important;
+      letter-spacing: normal !important;
+      word-spacing: normal !important;
+      text-transform: none !important;
+      text-decoration: none !important;
+      font-weight: normal !important;
+      font-style: normal !important;
+      font-variant: normal !important;
     }
     
     .treekit-search-input:focus {
-      border-color: #0D99FF;
+      border-color: #0D99FF !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
     
     .treekit-search-input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.4) !important;
+      opacity: 1 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      font-size: 13px !important;
+      font-weight: normal !important;
+      font-style: normal !important;
     }
     
     .treekit-projects {
@@ -1013,13 +1089,38 @@ function createTreekitUI() {
     }
 
     .treekit-settings-select {
-      background: #3c3c3c;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #fff;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 14px;
-      width: fit-content;
+      background: #3c3c3c !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      color: #fff !important;
+      padding: 8px !important;
+      border-radius: 4px !important;
+      font-size: 14px !important;
+      width: fit-content !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      box-sizing: border-box !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      line-height: normal !important;
+      height: auto !important;
+      min-height: unset !important;
+      max-height: unset !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      vertical-align: baseline !important;
+      text-align: left !important;
+      text-indent: 0 !important;
+      letter-spacing: normal !important;
+      word-spacing: normal !important;
+      text-transform: none !important;
+      text-decoration: none !important;
+      font-weight: normal !important;
+      font-style: normal !important;
+      font-variant: normal !important;
+      outline: none !important;
     }
 
     .treekit-settings-button {
@@ -1035,6 +1136,7 @@ function createTreekitUI() {
 
     .treekit-settings-button:hover {
       background: #4c4c4c;
+      border: none;
     }
 
     .treekit-danger-button {
