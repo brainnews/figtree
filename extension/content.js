@@ -156,7 +156,11 @@ function createTreekitUI() {
 
   const dragStart = (e) => {
     // Only prevent dragging from buttons and inputs
-    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button, input')) {
+    if (e.target.tagName === 'BUTTON' || 
+        e.target.tagName === 'INPUT' || 
+        e.target.closest('button, input') ||
+        e.target.classList.contains('material-symbols-outlined') ||
+        e.target.closest('.treekit-header-buttons')) {
       return;
     }
 
@@ -366,11 +370,32 @@ function createTreekitUI() {
     });
   });
 
-  // Add event listeners for both mouse and touch events
-  container.addEventListener("mousedown", dragStart, { passive: false });
+  // Add event listeners for both mouse and touch events only to the draggable header area
+  const headerLogo = container.querySelector('.treekit-logo');
+  if (headerLogo) {
+    headerLogo.addEventListener("mousedown", dragStart, { passive: false });
+    headerLogo.addEventListener("touchstart", dragStart, { passive: false });
+  }
+  
+  // Also allow dragging from empty space in header
+  const header = container.querySelector('.treekit-header');
+  if (header) {
+    header.addEventListener("mousedown", (e) => {
+      // Only start drag if clicking on header itself, not buttons
+      if (e.target === header || e.target === headerLogo) {
+        dragStart(e);
+      }
+    }, { passive: false });
+    header.addEventListener("touchstart", (e) => {
+      // Only start drag if clicking on header itself, not buttons
+      if (e.target === header || e.target === headerLogo) {
+        dragStart(e);
+      }
+    }, { passive: false });
+  }
+  
   document.addEventListener("mousemove", drag, { passive: false });
   document.addEventListener("mouseup", dragEnd, { passive: false });
-  container.addEventListener("touchstart", dragStart, { passive: false });
   document.addEventListener("touchmove", drag, { passive: false });
   document.addEventListener("touchend", dragEnd, { passive: false });
 
@@ -577,8 +602,8 @@ function createTreekitUI() {
     }
     
     .treekit-container.minimized {
-      max-height: 58px;
-      overflow: hidden;
+      max-height: 58px !important;
+      overflow: hidden !important;
     }
     
     .treekit-header {
@@ -663,6 +688,8 @@ function createTreekitUI() {
     .treekit-add-project {
       padding: 12px 16px;
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
