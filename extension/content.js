@@ -449,6 +449,10 @@ function createTreekitUI() {
           chrome.storage.local.remove(['treekit_projects'], () => {
             const projectsContainer = container.querySelector('.treekit-projects');
             projectsContainer.innerHTML = `<div class="treekit-empty">No projects found. Add a project above to get started.</div>`;
+            // Disable search input when all projects are removed
+            if (container.updateSearchInputState) {
+              container.updateSearchInputState(false);
+            }
             showError('All projects removed', 'info');
           });
         }
@@ -596,7 +600,6 @@ function createTreekitUI() {
     .treekit-container input,
     .treekit-container textarea,
     .treekit-container select {
-      all: unset !important;
       box-sizing: border-box !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
@@ -829,6 +832,16 @@ function createTreekitUI() {
       font-size: 13px !important;
       font-weight: normal !important;
       font-style: normal !important;
+    }
+    
+    .treekit-search-input:disabled {
+      opacity: 0.5 !important;
+      cursor: not-allowed !important;
+      color: rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    .treekit-search-input:disabled::placeholder {
+      color: rgba(255, 255, 255, 0.2) !important;
     }
     
     .treekit-projects {
@@ -1163,7 +1176,6 @@ function createTreekitUI() {
 
     .treekit-settings-button:hover {
       background: #4c4c4c;
-      border: none;
     }
 
     .treekit-danger-button {
@@ -1478,6 +1490,25 @@ function createTreekitUI() {
   const searchInput = container.querySelector('.treekit-search-input');
   const searchClearButton = container.querySelector('.treekit-search-clear');
   let isPreFetching = false;
+
+  // Helper function to manage search input state
+  function updateSearchInputState(hasProjects) {
+    if (hasProjects) {
+      searchInput.disabled = false;
+      searchInput.placeholder = 'Search projects...';
+    } else {
+      searchInput.disabled = true;
+      searchInput.placeholder = 'No projects to search';
+      searchInput.value = '';
+      searchClearButton.style.display = 'none';
+    }
+  }
+
+  // Initially disable search input until projects are loaded
+  updateSearchInputState(false);
+
+  // Attach the function to the container for access from message handlers
+  container.updateSearchInputState = updateSearchInputState;
 
   // Show/hide clear button based on input value
   searchInput.addEventListener('input', (e) => {
@@ -2563,11 +2594,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       if (projects.length === 0) {
         projectsContainer.innerHTML = `<div class="treekit-empty">No projects found. Add a project above to get started.</div>`;
+        // Disable search input when no projects
+        if (panelState.container.updateSearchInputState) {
+          panelState.container.updateSearchInputState(false);
+        }
       } else {
         // Add project items
         projects.forEach(project => {
           projectsContainer.appendChild(createProjectItem(project));
         });
+        // Enable search input when projects exist
+        if (panelState.container.updateSearchInputState) {
+          panelState.container.updateSearchInputState(true);
+        }
       }
       
       sendResponse({ success: true });

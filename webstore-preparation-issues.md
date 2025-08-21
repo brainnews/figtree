@@ -29,13 +29,13 @@ The extension has a solid technical foundation but requires several content and 
 **Required for Web Store submission:**
 
 **Screenshots:**
-- [ ] Create 1280x800 or 640x400 pixel screenshots showing extension in use
-- [ ] Show key features: project navigation, link copying, pinned items
-- [ ] Include screenshots of OAuth flow and main UI panel
+- [✓] Create 1280x800 or 640x400 pixel screenshots showing extension in use
+- [✓] Show key features: project navigation, link copying, pinned items
+- [✓] Include screenshots of OAuth flow and main UI panel
 
 **Promotional Images:**
-- [ ] Create 440x280 pixel promotional tile (required)
-- [ ] Consider additional promotional images for better visibility
+- [✓] Create 440x280 pixel promotional tile (required)
+- [✓] Consider additional promotional images for better visibility
 
 **Store Description:**
 - [ ] Write detailed store description explaining value proposition
@@ -55,6 +55,8 @@ The extension has a solid technical foundation but requires several content and 
 - Chrome Web Store recommends starting low and incrementing with each update
 - Current version implies a mature, fully-featured release
 
+**Updated To:** `"version": 0.9.0`
+
 ### 4. Manifest Description Optimization ⚠️
 **File:** `extension/manifest.json` (line 5)
 
@@ -71,8 +73,8 @@ The extension has a solid technical foundation but requires several content and 
 ## Technical Review Results ✅
 
 ### Manifest Requirements Status
-- ✅ **Name:** "Treekit" - clear and appropriate
-- ✅ **Version:** "1.0.0" - valid format
+- ✅ **Name:** "Treekit for Figma" - clear and appropriate
+- ✅ **Version:** "0.9.0" - valid format
 - ✅ **Description:** 110 chars - within 132 limit
 - ✅ **Icons:** Complete set (16, 32, 48, 128px) - all present in `/icons/` directory
 
@@ -101,7 +103,7 @@ The extension has a solid technical foundation but requires several content and 
 
 ### Before Packaging:
 - [ ] Complete privacy policy with real dates and contact info
-- [ ] Create required screenshots and promotional images
+- [✓] Create required screenshots and promotional images
 - [ ] Write comprehensive store description
 - [ ] Test extension thoroughly with fresh Chrome profile
 - [ ] Verify OAuth flow works in production environment
