@@ -1215,13 +1215,13 @@ function createTreekitUI() {
 
     .treekit-confirmation-modal {
       background: #2c2c2c;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       min-width: 300px;
       max-width: 400px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       animation: treekit-slide-in 0.3s ease-out;
       z-index: 1000;
+      height: 100%;
     }
 
     .treekit-confirmation-header {
