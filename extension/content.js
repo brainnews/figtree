@@ -288,6 +288,9 @@ function createTreekitUI() {
             <button class="treekit-settings-button treekit-danger-button" data-action="clearProjects">
               Remove All Projects
             </button>
+            <button class="treekit-settings-button treekit-danger-button" data-action="disconnect">
+              Disconnect from Figma
+            </button>
           </div>
         </div>
       </div>
@@ -442,6 +445,7 @@ function createTreekitUI() {
           chrome.storage.sync.remove(['pinnedItems'], () => {
             updatePinnedItemsDisplay(container);
             showError('Pinned items cleared', 'info');
+            settingsPanel.classList.remove('open');
           });
         }
       });
@@ -466,6 +470,51 @@ function createTreekitUI() {
               container.updateSearchInputState(false);
             }
             showError('All projects removed', 'info');
+            settingsPanel.classList.remove('open');
+          });
+        }
+      });
+    }
+
+    // Handle disconnect from Figma
+    const disconnectButton = container.querySelector('[data-action="disconnect"]');
+    if (disconnectButton) {
+      disconnectButton.addEventListener('click', async () => {
+        const confirmed = await showConfirmation(
+          'Are you sure you want to disconnect from Figma? This will remove all your data and you\'ll need to log in again.',
+          'Disconnect',
+          'Cancel'
+        );
+        
+        if (confirmed) {
+          // Clear all storage data
+          chrome.storage.local.remove(['treekit_access_token', 'treekit_projects'], () => {
+            chrome.storage.sync.remove(['pinnedItems'], () => {
+              // Send message to background script to clear in-memory token
+              chrome.runtime.sendMessage({ action: 'clearToken' });
+              
+              // Reset content script access token
+              accessToken = null;
+              console.log('[Treekit Auth]', 'Token reset to null in disconnect handler');
+              
+              // Reset UI to empty state
+              const projectsContainer = container.querySelector('.treekit-projects');
+              projectsContainer.innerHTML = `<div class="treekit-empty">No projects found. Add a project above to get started.</div>`;
+              
+              // Clear pinned items display
+              updatePinnedItemsDisplay(container);
+              
+              // Disable search input
+              if (container.updateSearchInputState) {
+                container.updateSearchInputState(false);
+              }
+              
+              // Update UI state for authentication
+              updateUIAuthState(container);
+              
+              showError('Disconnected from Figma successfully', 'info');
+              settingsPanel.classList.remove('open');
+            });
           });
         }
       });
@@ -1508,6 +1557,60 @@ function createTreekitUI() {
     .treekit-add-button.loading .material-symbols-outlined {
       animation: treekit-spin 0.6s linear infinite;
     }
+    
+    /* Disabled state styles */
+    .treekit-url-input.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .treekit-add-button.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #666 !important;
+    }
+    
+    .treekit-add-button.disabled:hover {
+      background: #666 !important;
+    }
+    
+    /* Connect button styles */
+    .treekit-connect-button {
+      background: #0D99FF;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 12px 16px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .treekit-connect-button:hover {
+      background: #0B87E0;
+    }
+    
+    .treekit-connect-button .material-symbols-outlined {
+      font-size: 18px;
+    }
+    
+    .treekit-empty-message {
+      margin-bottom: 4px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .treekit-error-toast, .treekit-info-toast, .treekit-warning-toast {
+      padding: 4px 16px;
+      font-size: 13px;
+    }
   `;
   
   document.head.appendChild(style);
@@ -1528,6 +1631,14 @@ function createTreekitUI() {
     const fileKey = parseFileKey(url);
     if (!fileKey) {
       showError('Invalid Figma URL');
+      return;
+    }
+    
+    // Check authentication status
+    if (!isAuthenticated()) {
+      showError('Please reconnect to Figma to add projects', 'warning');
+      // Update UI state immediately to show connect button
+      updateUIAuthState(container);
       return;
     }
     
@@ -1804,6 +1915,9 @@ function createTreekitUI() {
     }
   });
   
+  // Initialize authentication state
+  updateUIAuthState(container);
+  
   return container;
 }
 
@@ -1819,6 +1933,82 @@ function parseFileKey(url) {
   } catch {
     return null;
   }
+}
+
+// Check if user is authenticated
+function isAuthenticated() {
+  const isAuth = accessToken != null && accessToken !== '';
+  console.log('[Treekit Auth]', 'isAuthenticated:', isAuth, 'token:', accessToken ? 'exists' : 'null');
+  return isAuth;
+}
+
+// Update UI state based on authentication status
+function updateUIAuthState(container) {
+  if (!container) return;
+  
+  console.log('[Treekit Auth]', 'updateUIAuthState called, isAuthenticated:', isAuthenticated());
+  
+  const urlInput = container.querySelector('.treekit-url-input');
+  const addButton = container.querySelector('.treekit-add-button');
+  const projectsContainer = container.querySelector('.treekit-projects');
+  
+  if (!isAuthenticated()) {
+    // Disable input when not authenticated
+    if (urlInput) {
+      urlInput.disabled = true;
+      urlInput.placeholder = 'Connect to Figma to add projects';
+      urlInput.classList.add('disabled');
+    }
+    if (addButton) {
+      addButton.disabled = true;
+      addButton.classList.add('disabled');
+    }
+    
+    // Update empty state message
+    if (projectsContainer && projectsContainer.innerHTML.includes('No projects found')) {
+      projectsContainer.innerHTML = `
+        <div class="treekit-empty">
+          <div class="treekit-empty-message">Connect to Figma to access your projects</div>
+          <button class="treekit-connect-button">
+            <span class="material-symbols-outlined">link</span>
+            Connect to Figma
+          </button>
+        </div>
+      `;
+      
+      // Add event listener to the connect button
+      const connectButton = projectsContainer.querySelector('.treekit-connect-button');
+      if (connectButton) {
+        connectButton.addEventListener('click', connectToFigma);
+        console.log('[Treekit Auth]', 'Connect button event listener added');
+      }
+    }
+  } else {
+    // Enable input when authenticated
+    if (urlInput) {
+      urlInput.disabled = false;
+      urlInput.placeholder = 'Add Figma project by URL';
+      urlInput.classList.remove('disabled');
+    }
+    if (addButton) {
+      addButton.disabled = false;
+      addButton.classList.remove('disabled');
+    }
+    
+    // Update empty state message to standard version
+    if (projectsContainer && projectsContainer.innerHTML.includes('Connect to Figma to access')) {
+      projectsContainer.innerHTML = `<div class="treekit-empty">No projects found. Add a project above to get started.</div>`;
+    }
+  }
+}
+
+// Connect to Figma function called from UI
+function connectToFigma() {
+  console.log('[Treekit Auth]', 'Connect to Figma button clicked');
+  // Send message to background script to start OAuth flow
+  chrome.runtime.sendMessage({ action: 'startAuth' }, (response) => {
+    console.log('[Treekit Auth]', 'startAuth response:', response);
+  });
 }
 
 // Show error message with better categorization
@@ -1851,7 +2041,7 @@ function showError(message, type = 'error') {
         transform: translateX(-50%);
         background: #FF3B30;
         color: white;
-        padding: 8px 16px;
+        padding: 8px 20px !important;
         border-radius: 4px;
         font-size: 13px;
         animation: treekit-toast 3s ease-in-out forwards;
@@ -2649,6 +2839,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     
     accessToken = message.accessToken;
+    
+    // Update UI authentication state when token is received
+    updateUIAuthState(panelState.container);
+    
     const projectsContainer = panelState.container.querySelector('.treekit-projects');
     if (!projectsContainer) {
       sendResponse({ success: false, error: 'Projects container not found' });
@@ -2738,6 +2932,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.storage.local.get(['treekit_access_token'], (result) => {
         if (result.treekit_access_token) {
           accessToken = result.treekit_access_token;
+          
+          // Update UI authentication state
+          if (panelState.isOpen && panelState.container) {
+            updateUIAuthState(panelState.container);
+          }
+          
           // Refresh the UI if it's open
           if (panelState.isOpen && panelState.container) {
             const projectsContainer = panelState.container.querySelector('.treekit-projects');

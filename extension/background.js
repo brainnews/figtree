@@ -166,6 +166,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep the message channel open for async response
   }
   
+  if (message.action === 'clearToken') {
+    console.log('Clearing access token');
+    accessToken = null;
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (message.action === 'startAuth') {
+    console.log('Starting authentication flow');
+    startWebsiteAuthFlow()
+      .then(() => {
+        console.log('Authentication flow started successfully');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('Error starting authentication flow:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep the message channel open for async response
+  }
+  
   if (message.action === 'refreshProjects') {
     // Get the current tab
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
