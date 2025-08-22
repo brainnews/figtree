@@ -431,8 +431,14 @@ function createTreekitUI() {
     // Handle clear all pinned items
     const clearPinnedButton = container.querySelector('[data-action="clearPinned"]');
     if (clearPinnedButton) {
-      clearPinnedButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all pinned items?')) {
+      clearPinnedButton.addEventListener('click', async () => {
+        const confirmed = await showConfirmation(
+          'Are you sure you want to clear all pinned items?',
+          'Clear All',
+          'Cancel'
+        );
+        
+        if (confirmed) {
           chrome.storage.sync.remove(['pinnedItems'], () => {
             updatePinnedItemsDisplay(container);
             showError('Pinned items cleared', 'info');
@@ -444,8 +450,14 @@ function createTreekitUI() {
     // Handle clear all projects
     const clearProjectsButton = container.querySelector('[data-action="clearProjects"]');
     if (clearProjectsButton) {
-      clearProjectsButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to remove all projects? This cannot be undone.')) {
+      clearProjectsButton.addEventListener('click', async () => {
+        const confirmed = await showConfirmation(
+          'Are you sure you want to remove all projects? This cannot be undone.',
+          'Remove All',
+          'Cancel'
+        );
+        
+        if (confirmed) {
           chrome.storage.local.remove(['treekit_projects'], () => {
             const projectsContainer = container.querySelector('.treekit-projects');
             projectsContainer.innerHTML = `<div class="treekit-empty">No projects found. Add a project above to get started.</div>`;
@@ -1061,7 +1073,7 @@ function createTreekitUI() {
       border-left: 1px solid rgba(255, 255, 255, 0.1);
       transform: translateX(100%);
       transition: transform 0.3s ease;
-      z-index: 1000000;
+      z-index: 999;
       display: flex;
       flex-direction: column;
     }
@@ -1185,6 +1197,108 @@ function createTreekitUI() {
 
     .treekit-danger-button:hover {
       background: #c82333 !important;
+    }
+
+    .treekit-confirmation-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: treekit-fade-in 0.2s ease-out;
+    }
+
+    .treekit-confirmation-modal {
+      background: #2c2c2c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      min-width: 300px;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      animation: treekit-slide-in 0.3s ease-out;
+      z-index: 1000;
+    }
+
+    .treekit-confirmation-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 20px 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .treekit-confirmation-header .material-symbols-outlined {
+      color: #ff9500;
+      font-size: 24px;
+    }
+
+    .treekit-confirmation-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .treekit-confirmation-body {
+      padding: 16px 20px;
+    }
+
+    .treekit-confirmation-body p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .treekit-confirmation-actions {
+      display: flex;
+      gap: 12px;
+      padding: 16px 20px 20px 20px;
+      justify-content: flex-end;
+    }
+
+    .treekit-confirmation-cancel,
+    .treekit-confirmation-confirm {
+      background: #3c3c3c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      min-width: 80px;
+    }
+
+    .treekit-confirmation-cancel:hover {
+      background: #4c4c4c;
+    }
+
+    .treekit-confirmation-confirm:focus,
+    .treekit-confirmation-cancel:focus {
+      outline: 2px solid #0D99FF;
+      outline-offset: 2px;
+    }
+
+    @keyframes treekit-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes treekit-slide-in {
+      from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     .treekit-settings-note {
@@ -2509,9 +2623,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // Show loading state with placeholder items
     projectsContainer.innerHTML = '';
-    for (let i = 0; i < 3; i++) {
-      projectsContainer.appendChild(createLoadingItem('Loading projects...'));
-    }
+    projectsContainer.appendChild(createLoadingItem('Loading projects...'));
     
     // Send response immediately
     sendResponse({ success: true });
@@ -2653,6 +2765,96 @@ function createLoadingItem(text = 'Loading...') {
     </div>
   `;
   return loadingElement;
+}
+
+// Show custom confirmation dialog
+function showConfirmation(message, confirmText = 'Confirm', cancelText = 'Cancel') {
+  return new Promise((resolve) => {
+    const container = panelState.container;
+    if (!container) {
+      resolve(false);
+      return;
+    }
+
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'treekit-confirmation-overlay';
+    
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.className = 'treekit-confirmation-modal';
+    
+    modal.innerHTML = `
+      <div class="treekit-confirmation-header">
+        <span class="material-symbols-outlined">warning</span>
+        <h3>Confirm Action</h3>
+      </div>
+      <div class="treekit-confirmation-body">
+        <p>${message}</p>
+      </div>
+      <div class="treekit-confirmation-actions">
+        <button class="treekit-confirmation-cancel">${cancelText}</button>
+        <button class="treekit-confirmation-confirm treekit-danger-button">${confirmText}</button>
+      </div>
+    `;
+    
+    overlay.appendChild(modal);
+    container.appendChild(overlay);
+    
+    // Handle button clicks
+    const cancelBtn = modal.querySelector('.treekit-confirmation-cancel');
+    const confirmBtn = modal.querySelector('.treekit-confirmation-confirm');
+    
+    let cleanup = () => {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+    };
+    
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    
+    const handleConfirm = () => {
+      cleanup();
+      resolve(true);
+    };
+    
+    // Event listeners
+    cancelBtn.addEventListener('click', handleCancel);
+    confirmBtn.addEventListener('click', handleConfirm);
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        handleCancel();
+      }
+    });
+    
+    // Keyboard navigation
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleCancel();
+      } else if (e.key === 'Enter') {
+        handleConfirm();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Focus the confirm button
+    setTimeout(() => {
+      confirmBtn.focus();
+    }, 100);
+    
+    // Remove keydown listener when modal is closed
+    const originalCleanup = cleanup;
+    cleanup = () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      originalCleanup();
+    };
+  });
 }
 
 // Show success message
