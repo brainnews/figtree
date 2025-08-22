@@ -273,10 +273,10 @@ function createTreekitUI() {
     <div class="treekit-projects"></div>
     <div class="treekit-settings-panel">
       <div class="treekit-settings-header">
-        <h2>Settings</h2>
         <button class="treekit-settings-close">
-          <span class="material-symbols-outlined">close</span>
+          <span class="material-symbols-outlined">chevron_backward</span>
         </button>
+        <h2>Settings</h2>
       </div>
       <div class="treekit-settings-content">
         <div class="treekit-settings-section">
@@ -1135,7 +1135,7 @@ function createTreekitUI() {
       padding: 16px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
@@ -1150,7 +1150,7 @@ function createTreekitUI() {
       border: none;
       color: #fff;
       cursor: pointer;
-      padding: 4px;
+      padding: 0px !important;
       border-radius: 4px;
       display: flex;
       align-items: center;
