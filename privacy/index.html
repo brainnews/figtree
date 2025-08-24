@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Treekit</title>
+    <style>
+        :root {
+            --primary: #0D99FF;
+            --primary-dark: #0B87E0;
+            --text: #333333;
+            --text-light: #666666;
+            --text-muted: #999999;
+            --background: #FFFFFF;
+            --background-alt: #F8F9FA;
+            --border: #E9ECEF;
+            --card-bg: #FFFFFF;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-light);
+            font-size: 16px;
+        }
+
+        .last-updated {
+            background: var(--background-alt);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+            font-size: 14px;
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        .table-of-contents {
+            background: var(--background-alt);
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+
+        .table-of-contents h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .table-of-contents ul {
+            list-style: none;
+        }
+
+        .table-of-contents li {
+            margin-bottom: 8px;
+        }
+
+        .table-of-contents a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .table-of-contents a:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+            padding-top: 8px;
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text);
+            margin: 24px 0 12px 0;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-light);
+        }
+
+        ul, ol {
+            margin-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            color: var(--text-light);
+        }
+
+        strong {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .highlight-box {
+            background: rgba(13, 153, 255, 0.05);
+            border: 1px solid rgba(13, 153, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box p {
+            margin-bottom: 0;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .contact-info {
+            background: var(--background-alt);
+            padding: 24px;
+            border-radius: 8px;
+            margin-top: 32px;
+        }
+
+        .contact-info h3 {
+            margin-top: 0;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 22px;
+            }
+
+            .table-of-contents {
+                padding: 20px;
+            }
+        }
+
+        @media print {
+            body {
+                font-size: 12px;
+                line-height: 1.4;
+            }
+            
+            .table-of-contents {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="../icons/icon48.png" alt="Treekit Logo">
+            </div>
+            <h1>Privacy Policy</h1>
+            <p class="subtitle">Treekit Chrome Extension</p>
+        </div>
+
+        <div class="last-updated">
+            <strong>Effective Date:</strong> August 24, 2025 &nbsp;|&nbsp; <strong>Last Updated:</strong> August 24, 2025
+        </div>
+
+        <div class="table-of-contents">
+            <h2>Table of Contents</h2>
+            <ul>
+                <li><a href="#introduction">Introduction</a></li>
+                <li><a href="#information-collection">Information We Collect</a></li>
+                <li><a href="#information-storage">How We Store Your Information</a></li>
+                <li><a href="#information-usage">How We Use Your Information</a></li>
+                <li><a href="#information-sharing">Information Sharing</a></li>
+                <li><a href="#third-party">Third-Party Services</a></li>
+                <li><a href="#your-rights">Your Rights and Controls</a></li>
+                <li><a href="#security">Security Measures</a></li>
+                <li><a href="#children">Children's Privacy</a></li>
+                <li><a href="#changes">Changes to This Policy</a></li>
+                <li><a href="#contact">Contact Information</a></li>
+            </ul>
+        </div>
+
+        <section class="section" id="introduction">
+            <h2>Introduction</h2>
+            <p>Treekit ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how the Treekit Chrome Extension ("Extension") collects, uses, and protects your information when you use our service.</p>
+        </section>
+
+        <section class="section" id="information-collection">
+            <h2>Information We Collect</h2>
+
+            <h3>1. Figma Account Information</h3>
+            <ul>
+                <li><strong>What we collect:</strong> When you authorize Treekit to access your Figma account, we receive:
+                    <ul>
+                        <li>Your Figma user ID and basic profile information</li>
+                        <li>Access tokens to communicate with Figma's API on your behalf</li>
+                        <li>List of your Figma projects that you choose to add to Treekit</li>
+                    </ul>
+                </li>
+                <li><strong>How we collect it:</strong> Through Figma's OAuth 2.0 authorization flow</li>
+                <li><strong>Why we collect it:</strong> To provide the core functionality of accessing and navigating your Figma projects</li>
+            </ul>
+
+            <h3>2. Project Data</h3>
+            <ul>
+                <li><strong>What we collect:</strong>
+                    <ul>
+                        <li>Figma project metadata (names, IDs, structure)</li>
+                        <li>Page, frame, and group information from projects you add</li>
+                        <li>Project URLs and navigation links</li>
+                    </ul>
+                </li>
+                <li><strong>How we collect it:</strong> Through Figma's API when you add projects to Treekit</li>
+                <li><strong>Why we collect it:</strong> To display your project hierarchy and enable quick navigation</li>
+            </ul>
+
+            <h3>3. Usage Preferences</h3>
+            <ul>
+                <li><strong>What we collect:</strong>
+                    <ul>
+                        <li>List of projects you've added to Treekit</li>
+                        <li>Items you've pinned for quick access</li>
+                        <li>Extension settings and preferences</li>
+                    </ul>
+                </li>
+                <li><strong>How we collect it:</strong> Through your interactions with the Extension</li>
+                <li><strong>Why we collect it:</strong> To personalize your experience and maintain your preferences</li>
+            </ul>
+        </section>
+
+        <section class="section" id="information-storage">
+            <h2>How We Store Your Information</h2>
+
+            <h3>Local Storage</h3>
+            <ul>
+                <li><strong>Access tokens:</strong> Stored securely in Chrome's local storage on your device</li>
+                <li><strong>Project data:</strong> Cached locally for performance and offline access</li>
+                <li><strong>User preferences:</strong> Stored in Chrome's sync storage for cross-device synchronization</li>
+            </ul>
+
+            <h3>Data Retention</h3>
+            <ul>
+                <li>Project data is cached locally and cleared when you remove projects</li>
+                <li>Access tokens are stored until you disconnect your Figma account</li>
+                <li>Preferences are maintained until you uninstall the Extension</li>
+            </ul>
+        </section>
+
+        <section class="section" id="information-usage">
+            <h2>How We Use Your Information</h2>
+            <p>We use the collected information solely to:</p>
+            <ul>
+                <li>Authenticate with Figma's API on your behalf</li>
+                <li>Display your Figma project structure in the Extension</li>
+                <li>Enable quick copying of project, page, frame, and group links</li>
+                <li>Maintain your pinned items and preferences</li>
+                <li>Provide preview images for frames (when available)</li>
+            </ul>
+        </section>
+
+        <section class="section" id="information-sharing">
+            <h2>Information Sharing</h2>
+            <div class="highlight-box">
+                <p><strong>We do not share, sell, or transfer your personal information to third parties.</strong></p>
+            </div>
+            <p>The Extension:</p>
+            <ul>
+                <li>Communicates only with Figma's official API endpoints</li>
+                <li>Does not send your data to our servers or any external services</li>
+                <li>Operates entirely within your browser and local storage</li>
+            </ul>
+        </section>
+
+        <section class="section" id="third-party">
+            <h2>Third-Party Services</h2>
+
+            <h3>Figma Integration</h3>
+            <ul>
+                <li>The Extension integrates with Figma's API to access your projects</li>
+                <li>Figma's privacy policy governs their handling of your account data</li>
+                <li>We recommend reviewing <a href="https://www.figma.com/privacy/" target="_blank">Figma's Privacy Policy</a></li>
+            </ul>
+
+            <h3>Chrome Platform</h3>
+            <ul>
+                <li>The Extension uses Chrome's storage and permissions systems</li>
+                <li>Google's privacy policies apply to Chrome's handling of extension data</li>
+                <li>Data syncing follows Chrome's sync policies when enabled</li>
+            </ul>
+        </section>
+
+        <section class="section" id="your-rights">
+            <h2>Your Rights and Controls</h2>
+
+            <h3>Access and Control</h3>
+            <ul>
+                <li><strong>View stored data:</strong> Access your data through Chrome's extension management</li>
+                <li><strong>Remove projects:</strong> Delete projects from Treekit at any time</li>
+                <li><strong>Clear preferences:</strong> Reset your settings through the Extension</li>
+                <li><strong>Revoke access:</strong> Disconnect your Figma account to stop data access</li>
+            </ul>
+
+            <h3>Data Deletion</h3>
+            <p>To completely remove your data:</p>
+            <ol>
+                <li>Remove all projects from the Extension</li>
+                <li>Clear pinned items in settings</li>
+                <li>Uninstall the Extension from Chrome</li>
+                <li>Revoke Treekit's access in your Figma account settings</li>
+            </ol>
+        </section>
+
+        <section class="section" id="security">
+            <h2>Security Measures</h2>
+            <ul>
+                <li><strong>Secure authentication:</strong> OAuth 2.0 with PKCE for enhanced security</li>
+                <li><strong>Local storage:</strong> Data stored securely in Chrome's protected storage</li>
+                <li><strong>HTTPS communication:</strong> All API requests use encrypted connections</li>
+                <li><strong>No external servers:</strong> Data never leaves your browser environment</li>
+            </ul>
+        </section>
+
+        <section class="section" id="children">
+            <h2>Children's Privacy</h2>
+            <p>The Extension is not directed to children under 13 years of age. We do not knowingly collect personal information from children under 13. If you believe a child has provided personal information, please contact us.</p>
+        </section>
+
+        <section class="section" id="changes">
+            <h2>Changes to This Policy</h2>
+            <p>We may update this Privacy Policy periodically. When we do:</p>
+            <ul>
+                <li>We will update the "Last Updated" date</li>
+                <li>We will notify users of significant changes through the Extension</li>
+                <li>Continued use constitutes acceptance of the updated policy</li>
+            </ul>
+        </section>
+
+        <section class="section" id="data-processing">
+            <h2>Data Processing Legal Basis</h2>
+            <p>We process your data based on:</p>
+            <ul>
+                <li><strong>Consent:</strong> You explicitly authorize access to your Figma account</li>
+                <li><strong>Legitimate interests:</strong> Providing the functionality you request</li>
+                <li><strong>Contractual necessity:</strong> To deliver the service you've chosen to use</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Compliance</h2>
+            <p>This Privacy Policy is designed to comply with:</p>
+            <ul>
+                <li>Chrome Web Store Developer Program Policies</li>
+                <li>General Data Protection Regulation (GDPR)</li>
+                <li>California Consumer Privacy Act (CCPA)</li>
+                <li>Other applicable privacy regulations</li>
+            </ul>
+        </section>
+
+        <div class="contact-info" id="contact">
+            <h3>Contact Information</h3>
+            <p>If you have questions about this Privacy Policy or our data practices:</p>
+            <ul>
+                <li><strong>Email:</strong> <a href="mailto:help@gettreekit.com">help@gettreekit.com</a></li>
+                <li><strong>Website:</strong> <a href="https://www.gettreekit.com" target="_blank">https://www.gettreekit.com</a></li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 14px; text-align: center;">
+            By using the Treekit Extension, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of your information as described herein.
+        </div>
+    </div>
+</body>
+</html>

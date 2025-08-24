@@ -1,7 +1,7 @@
 # Privacy Policy for Treekit Chrome Extension
 
-**Effective Date:** [DATE]  
-**Last Updated:** [DATE]
+**Effective Date:** 8/24/2025  
+**Last Updated:** 8/24/2025
 
 ## Introduction
 
@@ -126,9 +126,8 @@ We process your data based on:
 
 If you have questions about this Privacy Policy or our data practices:
 
-- **Email:** [SUPPORT_EMAIL]
+- **Email:** help@gettreekit.com
 - **Website:** https://www.gettreekit.com
-- **GitHub Issues:** https://github.com/[USERNAME]/treekit/issues
 
 ## Compliance
 
