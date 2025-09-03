@@ -21,6 +21,7 @@
             --green: #03c601;
             --purple: #712c7f;
             --purple-dark: #51215f;
+            --teal: #133a45;
             --wood: #2E1104;
         }
 
@@ -83,6 +84,8 @@
 
         .nav {
             display: flex;
+            align-items: center;
+            justify-content: flex-end;
             gap: 24px;
         }
 
@@ -100,7 +103,7 @@
 
         .hero {
             padding-top: 40px;
-            background: linear-gradient(180deg, var(--background) 0%, var(--purple-dark) 100%);
+            background: linear-gradient(180deg, var(--background) 0%, var(--teal) 100%);
         }
 
         .hero h1 {
@@ -209,11 +212,14 @@
             padding: 32px 0;
             background: var(--background);
             text-align: center;
-            border-top: 1px solid var(--border);
+            width: 100%;
         }
 
-        footer p {
-            color: var(--text-light);
+        footer .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
         }
 
         @media (max-width: 768px) {
@@ -311,14 +317,7 @@
 <body>
     <header>
         <div class="container header-content">
-            <a href="#" class="logo">
-                <img src="treekit-icon-transparent.png" alt="Treekit Logo">
-            </a>
-            <nav class="nav">
-                <a href="./welcome">Help</a>
-                <a href="mailto:help@gettreekit.com?subject=Treekit%20Bug%20Report">Found a bug?</a>
-                <a href="./privacy">Privacy Policy</a>
-            </nav>
+            
         </div>
     </header>
 
@@ -376,7 +375,12 @@
 
     <footer>
         <div class="container">
-            <p>A project by <a href="https://milesgilbert.xyz/links" target="_blank">Miles Gilbert</a></p>
+            <nav class="nav">
+                <a href="./welcome">Help</a>
+                <a href="mailto:help@gettreekit.com?subject=Treekit%20Bug%20Report">Found a bug?</a>
+                <a href="./privacy">Privacy Policy</a>
+            </nav>
+            <a href="https://dumbsoft.com" target="_blank"><img src="dumbsoft-logo.png" alt="Dumbsoft logo" style="width: 100px;"></a>
         </div>
     </footer>
 
