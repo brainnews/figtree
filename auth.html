@@ -409,7 +409,7 @@
             const authUrl = new URL('https://www.figma.com/oauth');
             authUrl.searchParams.set('client_id', FIGMA_CLIENT_ID);
             authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-            authUrl.searchParams.set('scope', 'files:read');
+            authUrl.searchParams.set('scope', 'file_content:read current_user:read');
             authUrl.searchParams.set('response_type', 'code'); // Authorization code flow (proven working)
             authUrl.searchParams.set('state', state);
             

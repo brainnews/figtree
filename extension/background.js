@@ -81,7 +81,7 @@ async function exchangeCodeForToken(code) {
     
     try {
       // Use Chrome's identity API for OAuth2 token exchange
-      const authUrl = `https://www.figma.com/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=files:read&response_type=token&state=${Math.random().toString(36)}`;
+      const authUrl = `https://www.figma.com/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=file_content:read%20current_user:read&response_type=token&state=${Math.random().toString(36)}`;
       
       const authResult = await chrome.identity.launchWebAuthFlow({
         url: authUrl,
